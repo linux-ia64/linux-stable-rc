@@ -1370,7 +1370,7 @@ static int __create_synth_event(int argc, const char *name, const char **argv)
 	}
 	ret = register_synth_event(event);
 	if (!ret)
-		dyn_event_add(&event->devent);
+		dyn_event_add(&event->devent, &event->call);
 	else
 		free_synth_event(event);
  out:
