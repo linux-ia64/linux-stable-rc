@@ -394,7 +394,7 @@ static int bareudp6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
 		return -ESHUTDOWN;
 
 	dst = udp_tunnel6_dst_lookup(skb, dev, bareudp->net, sock, &saddr, info,
-				     IPPROTO_UDP, use_cache);
+				     use_cache);
 	if (IS_ERR(dst))
 		return PTR_ERR(dst);
 
@@ -524,8 +524,7 @@ static int bareudp_fill_metadata_dst(struct net_device *dev,
 			return -ESHUTDOWN;
 
 		dst = udp_tunnel6_dst_lookup(skb, dev, bareudp->net, sock,
-					     &saddr, info, IPPROTO_UDP,
-					     use_cache);
+					     &saddr, info, use_cache);
 		if (IS_ERR(dst))
 			return PTR_ERR(dst);
 
