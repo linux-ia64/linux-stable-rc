@@ -9,13 +9,92 @@ on:
   workflow_dispatch:
 
 jobs:
-  mirror:
+  mirror_and_check:
     runs-on: ubuntu-latest
-    name: mirror
+    outputs:
+      branch_matrix: ${{ steps.check.outputs.branch_matrix }}
     steps:
       - name: mirror
         id: mirror
-        uses: bridgelightcloud/github-mirror-action@v2
+        uses: bridgelightcloud/github-mirror-action@v3
         with:
           origin: 'https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable-rc.git'
           GITHUB_TOKEN: ${{ secrets.PAT }}
+
+      - name: check
+        id: check
+        run: |
+          REPO=$( basename $PWD )
+          cd ..
+          mv $REPO ${REPO}.git
+          git clone --shared ${REPO}.git $REPO
+          JSON_DATA_FILE="$PWD/workflows.json"
+          touch ${JSON_DATA_FILE}
+          cd $REPO
+          echo "DEBUG $( pwd ) - before for"
+          for branch in $( cat rc-branches ); do
+            git worktree add ../${branch} ${branch}
+            pushd ../${branch}
+            pwd
+            if git log --oneline | head -n1 | grep "Linux\ .*\-rc.*" &>/dev/null; then
+              KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*\-rc.*" )
+              echo "DEBUG build ${KERNEL_VERSION}"
+              if [[ -s ${JSON_DATA_FILE} ]]; then
+                echo -n "DEBUG , \"build_${branch}.yml\""
+                echo -n ", \"${branch}\"" >> ${JSON_DATA_FILE}
+              else
+                echo -n "DEBUG [\"build_${branch}.yml\""
+                echo -n "[\"${branch}\"" >> ${JSON_DATA_FILE}
+              fi
+            fi
+            cat ${JSON_DATA_FILE} || echo "DEBUG #1"
+            popd
+            pwd
+          done
+          echo -n "]" >> ${JSON_DATA_FILE}
+          pwd
+          echo "DEBUG $( pwd ) - after for"
+          ls -1
+          ls -1 ../
+          cat -v ${JSON_DATA_FILE} || echo "DEBUG #2"
+          echo "branch_matrix=$( jq -cn --argjson environments "$( cat ${JSON_DATA_FILE} )" '{branch: $environments}' )" >> $GITHUB_OUTPUT
+          
+
+  matrix_build:
+    needs: mirror_and_check
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.mirror_and_check.outputs.branch_matrix)}}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ matrix.branch }}
+
+      - name: build_step
+        run: |
+          echo "build"
+          build_dir=$( pwd )
+          pushd ../
+          wget 'https://mirrors.edge.kernel.org/pub/tools/crosstool/files/bin/x86_64/13.2.0/x86_64-gcc-13.2.0-nolibc-ia64-linux.tar.xz' -O ./tarball.tar.xz
+          wget 'https://raw.githubusercontent.com/johnny-mnemonic/linux-stable-rc/__mirror/make-kernel.bash' && chmod +x make-kernel.bash
+          wget 'https://raw.githubusercontent.com/johnny-mnemonic/linux-stable-rc/__mirror/rx2620-rx2660-rx2800-i2-combined-localmodconfig'
+          wget 'https://raw.githubusercontent.com/johnny-mnemonic/linux-stable-rc/__mirror/ia64-linux-workaround-ice-with-gcc-13.patch'
+          tar -xf tarball.tar.xz
+          ls -l
+          PATH=$PATH:$PWD/gcc-13.2.0-nolibc/ia64-linux/bin
+          popd
+          patch -p1 < ../ia64-linux-workaround-ice-with-gcc-13.patch || true
+          BRANCH=${{ matrix.branch }}
+          KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*\-rc.*" )
+          COMPILER_AND_VERSION=$( ia64-linux-gcc --version | head -n1 )
+          pushd ../
+          echo "| STATUS | BRANCH | VERSION | COMPILER |" >> $GITHUB_STEP_SUMMARY
+          echo "| ------ | ------ | ------- | -------- |" >> $GITHUB_STEP_SUMMARY
+          if time ./make-kernel.bash ./rx2620-rx2660-rx2800-i2-combined-localmodconfig ia64 ${build_dir}; then
+            echo "| :white_check_mark: | $BRANCH | $KERNEL_VERSION | $COMPILER_AND_VERSION |" >> $GITHUB_STEP_SUMMARY
+            true
+          else
+            echo "| :x: | $BRANCH | $KERNEL_VERSION | $COMPILER_AND_VERSION |" >> $GITHUB_STEP_SUMMARY
+            true
+          fi
