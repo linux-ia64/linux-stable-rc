@@ -1,4 +1,4 @@
-name: 'mirror'
+name: 'make-sandwich'
 on:
   push:
     branches:
@@ -32,7 +32,7 @@ jobs:
           touch ${JSON_DATA_FILE}
           cd $REPO
           echo "DEBUG $( pwd ) - before for"
-          for branch in $( cat rc-branches ); do
+          for branch in $( cat config/rc-branches ); do
             git worktree add ../${branch} ${branch}
             pushd ../${branch}
             pwd
@@ -69,32 +69,51 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ matrix.branch }}
+          ref: __mirror
+          path: __mirror
 
-      - name: build_step
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ matrix.branch }}
+          path: ${{ matrix.branch }}
+
+      - name: prepare_and_build_step
         run: |
-          echo "build"
-          build_dir=$( pwd )
-          pushd ../
-          wget 'https://mirrors.edge.kernel.org/pub/tools/crosstool/files/bin/x86_64/13.2.0/x86_64-gcc-13.2.0-nolibc-ia64-linux.tar.xz' -O ./tarball.tar.xz
-          wget 'https://raw.githubusercontent.com/johnny-mnemonic/linux-stable-rc/__mirror/make-kernel.bash' && chmod +x make-kernel.bash
-          wget 'https://raw.githubusercontent.com/johnny-mnemonic/linux-stable-rc/__mirror/rx2620-rx2660-rx2800-i2-combined-localmodconfig'
-          wget 'https://raw.githubusercontent.com/johnny-mnemonic/linux-stable-rc/__mirror/ia64-linux-workaround-ice-with-gcc-13.patch'
-          tar -xf tarball.tar.xz
-          ls -l
-          PATH=$PATH:$PWD/gcc-13.2.0-nolibc/ia64-linux/bin
-          popd
-          patch -p1 < ../ia64-linux-workaround-ice-with-gcc-13.patch || true
+          pwd
+          BUILD_DIR="$( pwd )/${{ matrix.branch }}"
+          TOOLS_DIR="$( pwd )/__mirror"
           BRANCH=${{ matrix.branch }}
+          echo "BRANCH=${BRANCH}" >> $GITHUB_ENV
+          # prepare tools ######################################################
+          cd ${TOOLS_DIR}
+          COMPILER_URL=$( cat ./config/compiler-url )
+          wget "${COMPILER_URL}" -O - | unxz | tar -xf -
+          COMPILER_PATH=$( echo gcc-*/*-linux )
+          PATH=$PATH:$PWD/${COMPILER_PATH}/bin
+          COMPILER=$( basename ${COMPILER_PATH}/bin/*-linux-gcc )
+          COMPILER_AND_VERSION=$( ${COMPILER} --version | head -n1 )
+          # apply any standard patches #########################################
+          cd ${BUILD_DIR}
           KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*\-rc.*" )
-          COMPILER_AND_VERSION=$( ia64-linux-gcc --version | head -n1 )
-          pushd ../
+          if [[ -e ${TOOLS_DIR}/patches/${{ matrix.branch }}/ ]]; then
+            for patch in ${TOOLS_DIR}/patches/${{ matrix.branch }}/*patch; do
+              patch -p1 < ${patch} || true
+            done          
+          fi
+          # build ##############################################################
+          cd "${TOOLS_DIR}"
           echo "| STATUS | BRANCH | VERSION | COMPILER |" >> $GITHUB_STEP_SUMMARY
           echo "| ------ | ------ | ------- | -------- |" >> $GITHUB_STEP_SUMMARY
-          if time ./make-kernel.bash ./rx2620-rx2660-rx2800-i2-combined-localmodconfig ia64 ${build_dir}; then
+          if time ./tools/make-kernel.bash ./config/rx2620-rx2660-rx2800-i2-combined-localmodconfig ia64 ${BUILD_DIR}; then
             echo "| :white_check_mark: | $BRANCH | $KERNEL_VERSION | $COMPILER_AND_VERSION |" >> $GITHUB_STEP_SUMMARY
             true
           else
             echo "| :x: | $BRANCH | $KERNEL_VERSION | $COMPILER_AND_VERSION |" >> $GITHUB_STEP_SUMMARY
             true
           fi
+
+      - name: future_build_step
+        run: |
+          echo "future build ##################################################"
+          echo "Where am I? $( pwd )"
+          echo "BRANCH=${BRANCH}"
