@@ -1,0 +1,15 @@
+diff --git a/mm/Makefile b/mm/Makefile
+index fc60a40ce954..4a13c2273394 100644
+--- a/mm/Makefile
++++ b/mm/Makefile
+@@ -54,6 +54,10 @@ obj-y			:= filemap.o mempool.o oom_kill.o fadvise.o \
+ 			   interval_tree.o list_lru.o workingset.o \
+ 			   debug.o gup.o mmap_lock.o $(mmu-y)
+ 
++ifeq ($(ARCH),ia64)
++	CFLAGS_page_alloc.o += -fno-var-tracking
++endif
++
+ # Give 'page_alloc' its own module-parameter namespace
+ page-alloc-y := page_alloc.o
+ page-alloc-$(CONFIG_SHUFFLE_PAGE_ALLOCATOR) += shuffle.o

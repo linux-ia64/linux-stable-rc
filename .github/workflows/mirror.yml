@@ -40,10 +40,10 @@ jobs:
               KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*\-rc.*" )
               echo "DEBUG build ${KERNEL_VERSION}"
               if [[ -s ${JSON_DATA_FILE} ]]; then
-                echo -n "DEBUG , \"build_${branch}.yml\""
+                echo "DEBUG , \"${branch}\""
                 echo -n ", \"${branch}\"" >> ${JSON_DATA_FILE}
               else
-                echo -n "DEBUG [\"build_${branch}.yml\""
+                echo "DEBUG [\"${branch}\""
                 echo -n "[\"${branch}\"" >> ${JSON_DATA_FILE}
               fi
             fi
