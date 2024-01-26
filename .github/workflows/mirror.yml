@@ -67,23 +67,36 @@ jobs:
       fail-fast: false
       matrix: ${{fromJson(needs.mirror_and_check.outputs.branch_matrix)}}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: __mirror
           path: __mirror
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ matrix.branch }}
           path: ${{ matrix.branch }}
 
-      - name: prepare_and_build_step
+      - uses: actions/checkout@v4
+        with:
+          repository: johnny-mnemonic/ski
+          ref: hp-sim-for-linux
+          path: hp-sim-for-linux
+
+      - uses: actions/checkout@v4
+        with:
+          repository: johnny-mnemonic/ski
+          ref: master
+          path: ski
+
+      - name: prepare_step
         run: |
           pwd
           BUILD_DIR="$( pwd )/${{ matrix.branch }}"
           TOOLS_DIR="$( pwd )/__mirror"
+          HP_SIM_DIR=$( pwd )/hp-sim-for-linux"
+          SKI_DIR="$( pwd )/ski"
           BRANCH=${{ matrix.branch }}
-          echo "BRANCH=${BRANCH}" >> $GITHUB_ENV
           # prepare tools ######################################################
           cd ${TOOLS_DIR}
           COMPILER_URL=$( cat ./config/compiler-url )
@@ -92,11 +105,23 @@ jobs:
           PATH=$PATH:$PWD/${COMPILER_PATH}/bin
           COMPILER=$( basename ${COMPILER_PATH}/bin/*-linux-gcc )
           COMPILER_AND_VERSION=$( ${COMPILER} --version | head -n1 )
+          # exports ############################################################
+          echo "BUILD_DIR=${BUILD_DIR}" >> $GITHUB_ENV
+          echo "TOOLS_DIR=${TOOLS_DIR}" >> $GITHUB_ENV
+          echo "HP_SIM_DIR=${HP_SIM_DIR}" >> $GITHUB_ENV
+          echo "SKI_DIR=${SKI_DIR}" >> $GITHUB_ENV
+          echo "BRANCH=${BRANCH}" >> $GITHUB_ENV
+          echo "MODPATH=${PATH}" >> $GITHUB_ENV
+          echo "COMPILER_AND_VERSION=${COMPILER_AND_VERSION}" >> $GITHUB_ENV
+
+      - name: regular_build_step
+        run: |
           # apply any standard patches #########################################
+          PATH=${MODPATH}
           cd ${BUILD_DIR}
           KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*\-rc.*" )
-          if [[ -e ${TOOLS_DIR}/patches/${{ matrix.branch }}/ ]]; then
-            for patch in ${TOOLS_DIR}/patches/${{ matrix.branch }}/*patch; do
+          if [[ -e ${TOOLS_DIR}/patches/${BRANCH}/ ]]; then
+            for patch in ${TOOLS_DIR}/patches/${BRANCH}/*patch; do
               patch -p1 < ${patch} || true
             done          
           fi
@@ -105,15 +130,39 @@ jobs:
           echo "| STATUS | BRANCH | VERSION | COMPILER |" >> $GITHUB_STEP_SUMMARY
           echo "| ------ | ------ | ------- | -------- |" >> $GITHUB_STEP_SUMMARY
           if time ./tools/make-kernel.bash ./config/rx2620-rx2660-rx2800-i2-combined-localmodconfig ia64 ${BUILD_DIR}; then
-            echo "| :white_check_mark: | $BRANCH | $KERNEL_VERSION | $COMPILER_AND_VERSION |" >> $GITHUB_STEP_SUMMARY
+            echo "| :white_check_mark: | ${BRANCH} | ${KERNEL_VERSION} | ${COMPILER_AND_VERSION} |" >> $GITHUB_STEP_SUMMARY
             true
           else
-            echo "| :x: | $BRANCH | $KERNEL_VERSION | $COMPILER_AND_VERSION |" >> $GITHUB_STEP_SUMMARY
+            echo "| :x: | ${BRANCH} | ${KERNEL_VERSION} | ${COMPILER_AND_VERSION} |" >> $GITHUB_STEP_SUMMARY
             true
           fi
 
-      - name: future_build_step
+      - name: hp_sim_build_step
         run: |
-          echo "future build ##################################################"
-          echo "Where am I? $( pwd )"
-          echo "BRANCH=${BRANCH}"
+          # ski available for our branch? ######################################
+          case ${BRANCH} in
+            linux-6.1.y | linux-6.6.y | linux-6.7.y)
+              echo "Ski not yet reinstated for ${BRANCH}"
+              exit 0
+            *)
+              true
+          esac
+          # apply ski patches ##################################################
+          PATH=${MODPATH}
+          cd ${BUILD_DIR}
+          KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*\-rc.*" )
+          make mrproper
+          if [[ -e ${HP_SIM_DIR}/${BRANCH}/ ]]; then
+            for patch in ${HP_SIM_DIR}/${BRANCH}/*patch; do
+              patch -p1 < ${patch} || true
+            done
+          fi
+          # build hp sim kernel ################################################
+          cd "${TOOLS_DIR}"
+          if time ./tools/make-kernel.bash ${BUILD_DIR}/arch/ia64/sim_defconfig ia64 ${BUILD_DIR} ski; then
+            echo "| :white_check_mark: | ${BRANCH} | ${KERNEL_VERSION} | ${COMPILER_AND_VERSION} |" >> $GITHUB_STEP_SUMMARY
+            true
+          else
+            echo "| :x: | ${BRANCH} | ${KERNEL_VERSION} | ${COMPILER_AND_VERSION} |" >> $GITHUB_STEP_SUMMARY
+            true
+          fi
