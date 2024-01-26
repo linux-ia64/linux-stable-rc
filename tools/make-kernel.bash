@@ -167,6 +167,9 @@ else
 	exit 1
 fi
 
+cp vmlinux "../vmlinux${_flavor}"
+cp vmlinux.gz "../vmlinux.gz${_flavor}"
+
 exit
 
 # modules_install
