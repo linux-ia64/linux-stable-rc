@@ -9,14 +9,59 @@ on:
   workflow_dispatch:
 
 jobs:
+  mirror_and_check:
+    runs-on: ubuntu-latest
+    outputs:
+      branch_matrix: ${{ steps.check.outputs.branch_matrix }}
+    steps:
+      - name: mirror
+        id: mirror
+        uses: bridgelightcloud/github-mirror-action@v3
+        with:
+          origin: 'https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable-rc.git'
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+
+      - name: check
+        id: check
+        run: |
+          REPO=$( basename $PWD )
+          cd ..
+          mv $REPO ${REPO}.git
+          git clone --shared ${REPO}.git $REPO
+          JSON_DATA_FILE="$PWD/workflows.json"
+          touch ${JSON_DATA_FILE}
+          cd $REPO
+          for branch in $( cat config/rc-branches ); do
+            git worktree add ../${branch} ${branch}
+            pushd ../${branch}
+            pwd
+            if git log --oneline | head -n1 | grep "Linux\ .*\-rc.*" &>/dev/null; then
+              KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*\-rc.*" )
+              echo "DEBUG build ${KERNEL_VERSION}"
+              if [[ -s ${JSON_DATA_FILE} ]]; then
+                echo "DEBUG , \"${branch}\""
+                echo -n ", \"${branch}\"" >> ${JSON_DATA_FILE}
+              else
+                echo "DEBUG [\"${branch}\""
+                echo -n "[\"${branch}\"" >> ${JSON_DATA_FILE}
+              fi
+            fi
+            popd
+            pwd
+          done
+          echo -n "]" >> ${JSON_DATA_FILE}
+          pwd
+          cat -v ${JSON_DATA_FILE} || echo "DEBUG #2"
+          echo "branch_matrix=$( jq -cn --argjson environments "$( cat ${JSON_DATA_FILE} )" '{branch: $environments}' )" >> $GITHUB_OUTPUT
+
   matrix_build:
-#    needs: mirror_and_check
+    needs: mirror_and_check
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-#      matrix: ${{fromJson(needs.mirror_and_check.outputs.branch_matrix)}}
-      matrix:
-        branch: [linux-4.19.y, linux-5.4.y, linux-5.10.y, linux-5.15.y, linux-6.1.y, linux-6.6.y, linux-6.7.y]
+      matrix: ${{fromJson(needs.mirror_and_check.outputs.branch_matrix)}}
+#      matrix:
+#        branch: [linux-4.19.y, linux-5.4.y, linux-5.10.y, linux-5.15.y, linux-6.1.y, linux-6.6.y, linux-6.7.y]
     steps:
       - uses: actions/checkout@v4
         with:
