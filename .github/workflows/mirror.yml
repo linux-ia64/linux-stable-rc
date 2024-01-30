@@ -1,22 +1,67 @@
 name: 'make-sandwich'
 on:
-  push:
-    branches:
-      - __mirror
+  #push:
+  #  branches:
+  #    - __mirror
   schedule:
     # Run everyday at 3 AM UTC
     - cron: '0 3 * * *'
   workflow_dispatch:
 
 jobs:
+  mirror_and_check:
+    runs-on: ubuntu-latest
+    outputs:
+      branch_matrix: ${{ steps.check.outputs.branch_matrix }}
+    steps:
+      - name: mirror
+        id: mirror
+        uses: bridgelightcloud/github-mirror-action@v3
+        with:
+          origin: 'https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable-rc.git'
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+
+      - name: check
+        id: check
+        run: |
+          REPO=$( basename $PWD )
+          cd ..
+          mv $REPO ${REPO}.git
+          git clone --shared ${REPO}.git $REPO
+          JSON_DATA_FILE="$PWD/workflows.json"
+          touch ${JSON_DATA_FILE}
+          cd $REPO
+          for branch in $( cat config/rc-branches ); do
+            git worktree add ../${branch} ${branch}
+            pushd ../${branch}
+            pwd
+            if git log --oneline | head -n1 | grep "Linux\ .*\-rc.*" &>/dev/null; then
+              KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*\-rc.*" )
+              echo "DEBUG build ${KERNEL_VERSION}"
+              if [[ -s ${JSON_DATA_FILE} ]]; then
+                echo "DEBUG , \"${branch}\""
+                echo -n ", \"${branch}\"" >> ${JSON_DATA_FILE}
+              else
+                echo "DEBUG [\"${branch}\""
+                echo -n "[\"${branch}\"" >> ${JSON_DATA_FILE}
+              fi
+            fi
+            popd
+            pwd
+          done
+          echo -n "]" >> ${JSON_DATA_FILE}
+          pwd
+          cat -v ${JSON_DATA_FILE} || echo "DEBUG #2"
+          echo "branch_matrix=$( jq -cn --argjson environments "$( cat ${JSON_DATA_FILE} )" '{branch: $environments}' )" >> $GITHUB_OUTPUT
+
   matrix_build:
-#    needs: mirror_and_check
+    needs: mirror_and_check
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-#      matrix: ${{fromJson(needs.mirror_and_check.outputs.branch_matrix)}}
-      matrix:
-        branch: [linux-4.19.y, linux-5.4.y, linux-5.10.y, linux-5.15.y, linux-6.1.y, linux-6.6.y, linux-6.7.y]
+      matrix: ${{fromJson(needs.mirror_and_check.outputs.branch_matrix)}}
+#      matrix:
+#        branch: [linux-4.19.y, linux-5.4.y, linux-5.10.y, linux-5.15.y, linux-6.1.y, linux-6.6.y, linux-6.7.y]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -180,42 +225,6 @@ jobs:
           # exports ############################################################
           echo "SKI_BOOTLOADER=${SKI_BOOTLOADER}" >> $GITHUB_ENV
           echo "BSKI=${BSKI}" >> $GITHUB_ENV
-
-      - name: ski_test_step
-        run: |
-          # ski available for our branch? ######################################
-          case ${BRANCH} in
-            linux-6.1.y | linux-6.6.y | linux-6.7.y)
-              echo "Ski not yet reinstated for ${BRANCH}"
-              exit 0
-              ;;
-            *)
-              true
-              ;;
-          esac
-          # get ia64 root FS ###################################################
-          SKI_TEST_DIR="${BASE_DIR}/ski-test"
-          mkdir ${SKI_TEST_DIR} && cd ${SKI_TEST_DIR}
-          cp ${TOOLS_DIR}/tools/run_ski_test.bash ${TOOLS_DIR}/config/sdc-debian.xz.SHA256 .
-          chmod +x run_ski_test.bash
-          IA64_ROOTFS_URL=$( cat ${TOOLS_DIR}/config/ia64-rootfs-url )
-          wget "${IA64_ROOTFS_URL}"
-          if sha256sum -c sdc-debian.xz.SHA256; then
-            rm sdc-debian.xz.SHA256
-            xz --decompress --verbose sdc-debian.xz && mv sdc-debian sdc
-            echo "" >> ${SUMMARY_FILE}
-            echo "| STATUS | TOOL |" >> ${SUMMARY_FILE}
-            echo "| ------ | ---- |" >> ${SUMMARY_FILE}
-            if ./run_ski_test.bash ${BSKI} ${SKI_BOOTLOADER} ${HP_SIM_KERNEL}; then
-              echo "| :white_check_mark: | run_ski_test.bash |" >> ${SUMMARY_FILE}
-              true
-            else
-              echo "| :x: | run_ski_test.bash |" >> ${SUMMARY_FILE}
-              true
-            fi
-          else
-            echo "ERROR: Wrong SHA256 hash for ia64 root FS. Refuse to continue." >> ${SUMMARY_FILE}
-          fi
 
       - name: steps_summary
         run: |
