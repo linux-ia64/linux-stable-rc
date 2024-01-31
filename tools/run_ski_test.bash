@@ -1,14 +1,12 @@
 #!/bin/bash
 
-#export SKI_USE_FAKE_XTERM=1
+export SKI_USE_FAKE_XTERM=1
 
-_ski="$1"
-_skiBootLoader="$2"
-_hpSimLinuxKernel="$3"
+_skiBootLoader="$1"
+_hpSimLinuxKernel="$2"
 _skiPathVar="/bin:/sbin:/usr/bin:/usr/sbin"
 
-${_ski} \
-	-noconsole \
+bski \
 	${_skiBootLoader} \
 	${_hpSimLinuxKernel} \
 	root=/dev/sda \
@@ -17,11 +15,17 @@ ${_ski} \
 	init=/root/bin/ski_test.bash \
 	PATH=${_skiPathVar} \
 	rw \
-	memblock=debug
+	memblock=debug &
 
 _skiPID=$!
 
+sleep 0.25
+
 _skiLog=ski.*
+
+tail -f -n +1 ${_skiLog} &
+
+_tailPID=$!
 
 while ! grep 'INFO: Ski execution finished.' ${_skiLog} &>/dev/null; do
 
@@ -30,6 +34,7 @@ done
 
 sleep 5
 
+kill ${_tailPID}
 kill ${_skiPID}
 
 cat ${_skiLog}
@@ -42,4 +47,3 @@ else
 	rm ${_skiLog}
 	exit 1
 fi
-
