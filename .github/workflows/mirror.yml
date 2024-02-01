@@ -31,22 +31,29 @@ jobs:
           JSON_DATA_FILE="$PWD/workflows.json"
           touch ${JSON_DATA_FILE}
           cd $REPO
-          # insert dummy element ###############################################
-          echo -n "[\"NO_BUILD\"" >> ${JSON_DATA_FILE}
           # go through all configured branches and check for RCs ###############
           for branch in $( cat config/rc-branches ); do
             git worktree add ../${branch} ${branch}
             pushd ../${branch}
             pwd
-            if git log --oneline | head -n1 | grep "Linux\ .*\-rc.*" &>/dev/null; then
-              KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*\-rc.*" )
+            if git log --oneline | head -n1 | grep "Linux\ .*" &>/dev/null; then
+              KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*" )
               echo "DEBUG build ${KERNEL_VERSION}"
-              echo "DEBUG , \"${branch}\""
-              echo -n ", \"${branch}\"" >> ${JSON_DATA_FILE}
+              if [[ -s ${JSON_DATA_FILE} ]]; then
+                echo "DEBUG , \"${branch}\""
+                echo -n ", \"${branch}\"" >> ${JSON_DATA_FILE}
+              else
+                echo "DEBUG [\"${branch}\""
+                echo -n "[\"${branch}\"" >> ${JSON_DATA_FILE}
+              fi
             fi
             popd
             pwd
           done
+          if [[ ! -s ${JSON_DATA_FILE} ]]; then
+            # insert dummy element #############################################
+            echo -n "[\"NO_BUILD\"" >> ${JSON_DATA_FILE}
+          fi
           echo -n "]" >> ${JSON_DATA_FILE}
           pwd
           cat -v ${JSON_DATA_FILE} || echo "DEBUG #2"
@@ -125,7 +132,7 @@ jobs:
           # apply any standard patches #########################################
           PATH=${MODPATH}
           cd ${BUILD_DIR}
-          KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*\-rc.*" )
+          KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*" )
           if [[ -e ${TOOLS_DIR}/patches/${BRANCH}/ ]]; then
             for patch in ${TOOLS_DIR}/patches/${BRANCH}/*patch; do
               patch -p1 < ${patch} || true
@@ -161,7 +168,7 @@ jobs:
           # apply ski patches ##################################################
           PATH=${MODPATH}
           cd ${BUILD_DIR}
-          KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*\-rc.*" )
+          KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*" )
           make mrproper
           if [[ -e ${HP_SIM_DIR}/${BRANCH}/ ]]; then
             for patch in ${HP_SIM_DIR}/${BRANCH}/*patch; do
