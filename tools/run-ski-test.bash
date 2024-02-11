@@ -37,8 +37,6 @@ sleep 5
 kill ${_tailPID}
 kill ${_skiPID}
 
-cat ${_skiLog}
-
 if grep 'INFO: Ski test succeeded.' ${_skiLog} &>/dev/null; then
 
 	rm ${_skiLog}
