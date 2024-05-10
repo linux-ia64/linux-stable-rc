@@ -542,9 +542,7 @@ void snd_card_disconnect(struct snd_card *card)
 	clear_bit(card->number, snd_cards_lock);
 	mutex_unlock(&snd_card_mutex);
 
-#ifdef CONFIG_PM
 	snd_power_sync_ref(card);
-#endif
 }
 EXPORT_SYMBOL(snd_card_disconnect);
 
