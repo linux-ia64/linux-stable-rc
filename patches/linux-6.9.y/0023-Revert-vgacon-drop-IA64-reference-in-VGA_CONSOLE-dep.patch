@@ -1,0 +1,27 @@
+From 21a99259a78113e16f4df583c6c27ec8a462b138 Mon Sep 17 00:00:00 2001
+From: Tomas Glozar <tglozar@gmail.com>
+Date: Mon, 6 May 2024 14:05:44 +0200
+Subject: [PATCH 23/26] Revert "vgacon: drop IA64 reference in VGA_CONSOLE
+ dependency list"
+
+This reverts commit 110684d58bdb715032bc7fc92ebdb554ae7deeb6.
+---
+ drivers/video/console/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/video/console/Kconfig b/drivers/video/console/Kconfig
+index bc31db6ef7d2..83c2d7329ca5 100644
+--- a/drivers/video/console/Kconfig
++++ b/drivers/video/console/Kconfig
+@@ -7,7 +7,7 @@ menu "Console display driver support"
+ 
+ config VGA_CONSOLE
+ 	bool "VGA text console" if EXPERT || !X86
+-	depends on ALPHA || X86 || \
++	depends on ALPHA || IA64 || X86 || \
+ 		(ARM && ARCH_FOOTBRIDGE) || \
+ 		(MIPS && (MIPS_MALTA || SIBYTE_BCM112X || SIBYTE_SB1250 || SIBYTE_BCM1x80 || SNI_RM))
+ 	select APERTURE_HELPERS if (DRM || FB || VFIO_PCI_CORE)
+-- 
+2.25.1
+

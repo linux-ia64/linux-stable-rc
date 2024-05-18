@@ -1,0 +1,27 @@
+From bd60e23adc348a53fbe068196284cdaeb1f67826 Mon Sep 17 00:00:00 2001
+From: Tomas Glozar <tglozar@gmail.com>
+Date: Mon, 6 May 2024 14:06:18 +0200
+Subject: [PATCH 25/26] Revert "kbuild: deb-pkg: do not search for 'scripts'
+ directory under arch/"
+
+This reverts commit 358c3f8cce6d8294e7ba72199f04771e9bff4b64.
+---
+ scripts/package/install-extmod-build | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/package/install-extmod-build b/scripts/package/install-extmod-build
+index 76e0765dfcd6..8a7051fad087 100755
+--- a/scripts/package/install-extmod-build
++++ b/scripts/package/install-extmod-build
+@@ -20,7 +20,7 @@ mkdir -p "${destdir}"
+ 	find "arch/${SRCARCH}" -maxdepth 1 -name 'Makefile*'
+ 	find include scripts -type f -o -type l
+ 	find "arch/${SRCARCH}" -name Kbuild.platforms -o -name Platform
+-	find "arch/${SRCARCH}" -name include -type d
++	find "arch/${SRCARCH}" -name include -o -name scripts -type d
+ ) | tar -c -f - -C "${srctree}" -T - | tar -xf - -C "${destdir}"
+ 
+ {
+-- 
+2.25.1
+

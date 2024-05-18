@@ -1,0 +1,21 @@
+From 2a278eec19779026a2bd7711a80097fa4cbd8990 Mon Sep 17 00:00:00 2001
+From: Tomas Glozar <tglozar@gmail.com>
+Date: Mon, 29 Apr 2024 11:35:24 +0200
+Subject: [PATCH 26/26] Add localversion for -EPIC release
+
+Signed-off-by: Tomas Glozar <tglozar@gmail.com>
+---
+ localversion-epic | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 localversion-epic
+
+diff --git a/localversion-epic b/localversion-epic
+new file mode 100644
+index 000000000000..fdfa038fc293
+--- /dev/null
++++ b/localversion-epic
+@@ -0,0 +1 @@
++-epic2
+-- 
+2.25.1
+
