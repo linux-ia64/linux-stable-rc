@@ -241,6 +241,10 @@ else
 fi
 ) 2>&1 | tee -a "$_tempLogFile"
 
+# copy kernels to the expected place
+cp vmlinux "../vmlinux${_flavor}"
+cp vmlinux.gz "../vmlinux.gz${_flavor}"
+
 # exit early for CI run
 exit
 

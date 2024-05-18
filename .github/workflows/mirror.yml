@@ -107,6 +107,18 @@ jobs:
           BRANCH=${{ matrix.branch }}
           SUMMARY_FILE=${BASE_DIR}/summary.md
           touch ${SUMMARY_FILE}
+          # get system info ####################################################
+          echo "****"
+          uname -a
+          echo "****"
+          lscpu
+          echo "****"
+          cat /proc/cpuinfo
+          echo "****"
+          free -m
+          echo "****"
+          lspci
+          echo "****"
           # prepare tools ######################################################
           cd ${TOOLS_DIR}
           CROSS_COMPILER_URL=$( cat ./config/compiler-url )
