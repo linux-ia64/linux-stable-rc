@@ -1,0 +1,74 @@
+From e534c5d3d2c5353c879a2751ffb6e7b0c7ca7bb3 Mon Sep 17 00:00:00 2001
+From: Johnny Mnemonic <jm@machine-hall.org>
+Date: Sun, 2 Jun 2024 10:10:34 +0200
+Subject: [PATCH 29/29] Revert "ACPI/NUMA: Remove architecture dependent
+ remainings"
+
+This reverts commit 3a785e19f432672b9ef53f07c506d5e698439033.
+---
+ drivers/acpi/numa/srat.c | 16 ++++++++++++++--
+ include/linux/acpi.h     |  2 ++
+ 2 files changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/acpi/numa/srat.c b/drivers/acpi/numa/srat.c
+index e4d53e3660fd..3b09fd39eeb4 100644
+--- a/drivers/acpi/numa/srat.c
++++ b/drivers/acpi/numa/srat.c
+@@ -213,12 +213,13 @@ __weak int __init numa_fill_memblks(u64 start, u64 end)
+ 	return NUMA_NO_MEMBLK;
+ }
+ 
++#if defined(CONFIG_X86) || defined(CONFIG_ARM64) || defined(CONFIG_LOONGARCH)
+ /*
+  * Callback for SLIT parsing.  pxm_to_node() returns NUMA_NO_NODE for
+  * I/O localities since SRAT does not list them.  I/O localities are
+  * not supported at this point.
+  */
+-static void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
++void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
+ {
+ 	int i, j;
+ 
+@@ -240,7 +241,11 @@ static void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
+ 	}
+ }
+ 
+-static int __init
++/*
++ * Default callback for parsing of the Proximity Domain <-> Memory
++ * Area mappings
++ */
++int __init
+ acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
+ {
+ 	u64 start, end;
+@@ -340,6 +345,13 @@ static int __init acpi_parse_cfmws(union acpi_subtable_headers *header,
+ 	(*fake_pxm)++;
+ 	return 0;
+ }
++#else
++static int __init acpi_parse_cfmws(union acpi_subtable_headers *header,
++				   void *arg, const unsigned long table_end)
++{
++	return 0;
++}
++#endif /* defined(CONFIG_X86) || defined (CONFIG_ARM64) */
+ 
+ static int __init acpi_parse_slit(struct acpi_table_header *table)
+ {
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index 8a3223b645fa..dce8707f1441 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -267,6 +267,8 @@ static inline void
+ acpi_numa_gicc_affinity_init(struct acpi_srat_gicc_affinity *pa) { }
+ #endif
+ 
++int acpi_numa_memory_affinity_init (struct acpi_srat_mem_affinity *ma);
++
+ #ifndef PHYS_CPUID_INVALID
+ typedef u32 phys_cpuid_t;
+ #define PHYS_CPUID_INVALID (phys_cpuid_t)(-1)
+-- 
+2.25.1
+

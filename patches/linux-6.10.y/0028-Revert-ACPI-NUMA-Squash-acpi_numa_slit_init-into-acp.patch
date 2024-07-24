@@ -1,0 +1,65 @@
+From 2cc8a034be6c23cf0c62edd10e3beab097852aa5 Mon Sep 17 00:00:00 2001
+From: Johnny Mnemonic <jm@machine-hall.org>
+Date: Sun, 2 Jun 2024 10:05:51 +0200
+Subject: [PATCH 28/29] Revert "ACPI/NUMA: Squash acpi_numa_slit_init() into
+ acpi_parse_slit()"
+
+This reverts commit f4469879ea5c9c8c6fa51fd7764f7eaeb71c07f5.
+---
+ drivers/acpi/numa/srat.c | 23 ++++++++++++++---------
+ 1 file changed, 14 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/acpi/numa/srat.c b/drivers/acpi/numa/srat.c
+index 430ddcfb8312..e4d53e3660fd 100644
+--- a/drivers/acpi/numa/srat.c
++++ b/drivers/acpi/numa/srat.c
+@@ -218,16 +218,10 @@ __weak int __init numa_fill_memblks(u64 start, u64 end)
+  * I/O localities since SRAT does not list them.  I/O localities are
+  * not supported at this point.
+  */
+-static int __init acpi_parse_slit(struct acpi_table_header *table)
++static void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
+ {
+-	struct acpi_table_slit *slit = (struct acpi_table_slit *)table;
+ 	int i, j;
+ 
+-	if (!slit_valid(slit)) {
+-		pr_info("SLIT table looks invalid. Not used.\n");
+-		return -EINVAL;
+-	}
+-
+ 	for (i = 0; i < slit->locality_count; i++) {
+ 		const int from_node = pxm_to_node(i);
+ 
+@@ -244,8 +238,6 @@ static int __init acpi_parse_slit(struct acpi_table_header *table)
+ 				slit->entry[slit->locality_count * i + j]);
+ 		}
+ 	}
+-
+-	return 0;
+ }
+ 
+ static int __init
+@@ -349,6 +341,19 @@ static int __init acpi_parse_cfmws(union acpi_subtable_headers *header,
+ 	return 0;
+ }
+ 
++static int __init acpi_parse_slit(struct acpi_table_header *table)
++{
++	struct acpi_table_slit *slit = (struct acpi_table_slit *)table;
++
++	if (!slit_valid(slit)) {
++		pr_info("SLIT table looks invalid. Not used.\n");
++		return -EINVAL;
++	}
++	acpi_numa_slit_init(slit);
++
++	return 0;
++}
++
+ void __init __weak
+ acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa)
+ {
+-- 
+2.25.1
+
