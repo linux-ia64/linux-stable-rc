@@ -167,9 +167,18 @@ jobs:
           fi
           # build ##############################################################
           cd "${TOOLS_DIR}"
-          echo "| STATUS | BRANCH | VERSION | TYPE | USED PATCHES | COMPILER |" >> ${SUMMARY_FILE}
-          echo "| ------ | ------ | ------- | ---- | ------------ | -------- |" >> ${SUMMARY_FILE}
-          if time ./tools/make-kernel.bash ./config/linux-for-hp-integrities-v2 ia64 ${BUILD_DIR}; then
+          echo "| STATUS | BRANCH | VERSION | TYPE | USED PATCHES | COMPILER | DOWNLOAD |" >> ${SUMMARY_FILE}
+          echo "| ------ | ------ | ------- | ---- | ------------ | -------- | -------- |" >> ${SUMMARY_FILE}
+          BUILD_COMMAND="time ./tools/make-kernel.bash ./config/linux-for-hp-integrities-v3 ia64 ${BUILD_DIR} gha tar-pkg"
+          if ${BUILD_COMMAND}; then
+            mkdir build-artifacts && mv $( cat ${BUILD_DIR}/LINUX_BUILD_LOG ) $( cat ${BUILD_DIR}/LINUX_TARBALL ) build-artifacts/
+            pushd build-artifacts/
+            sha256sum * > SHA256
+            popd
+            # exports ##########################################################
+            echo "BUILD_ARTIFACTS=${PWD}/build-artifacts" >> $GITHUB_ENV
+            echo "KERNEL_VERSION=${KERNEL_VERSION}" >> $GITHUB_ENV
+            ####################################################################
             echo "| :white_check_mark: | ${BRANCH} | ${KERNEL_VERSION} | regular | ${USED_PATCHES} | ${CROSS_COMPILER_AND_VERSION} |" >> ${SUMMARY_FILE}
             echo "${KERNEL_VERSION}" > ${GITHUB_WORKSPACE}/${BRANCH}-last-kernel-version
             true
@@ -177,6 +186,18 @@ jobs:
             echo "| :x: | ${BRANCH} | ${KERNEL_VERSION} | regular | ${USED_PATCHES} |${CROSS_COMPILER_AND_VERSION} |" >> ${SUMMARY_FILE}
             true
           fi
+
+      - uses: actions/upload-artifact@v4
+        id: artifact-upload-step
+        with:
+          name: ${{ env.KERNEL_VERSION }}
+          path: ${{ env.BUILD_ARTIFACTS }}/
+          compression-level: 0
+          retention-days: 2
+
+      - name: Output artifact ID
+        run: |
+          echo '||||||| [build artifacts](${{ steps.artifact-upload-step.outputs.artifact-url }}) |' >> ${SUMMARY_FILE}
 
 #      - uses: actions/upload-artifact@v4
 #        with:
@@ -213,7 +234,7 @@ jobs:
             echo "EXIT_EARLY=1" >> $GITHUB_ENV
             true
           fi
-          HP_SIM_KERNEL="${BUILD_DIR}/../vmlinux-ski"
+          HP_SIM_KERNEL="${BUILD_DIR}/vmlinux"
           # exports ############################################################
           echo "HP_SIM_KERNEL=${HP_SIM_KERNEL}" >> $GITHUB_ENV
 
