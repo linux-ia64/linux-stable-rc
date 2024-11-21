@@ -194,12 +194,12 @@ jobs:
           fi
 
       - uses: actions/upload-artifact@v4
-        id: artifact-upload-step
+        id: artifact-upload-step-1
         with:
           name: ${{ env.KERNEL_VERSION }}
           path: ${{ env.BUILD_ARTIFACTS }}/
           compression-level: 0
-          retention-days: 2
+          retention-days: 4
 
       - name: Output artifact ID
         run: |
@@ -232,7 +232,16 @@ jobs:
           fi
           # build hp sim kernel ################################################
           cd "${TOOLS_DIR}"
-          if time ./tools/make-kernel.bash ${BUILD_DIR}/arch/ia64/configs/sim_defconfig ia64 ${BUILD_DIR} ski; then
+          BUILD_COMMAND="time ./tools/make-kernel.bash ${BUILD_DIR}/arch/ia64/configs/sim_defconfig ia64 ${BUILD_DIR} ski-gha tar-pkg"
+          if ${BUILD_COMMAND}; then
+            mkdir build-artifacts-ski && mv $( cat ${BUILD_DIR}/LINUX_BUILD_LOG ) $( cat ${BUILD_DIR}/LINUX_TARBALL ) build-artifacts-ski/
+            pushd build-artifacts-ski/
+            sha256sum * > SHA256
+            popd
+            # exports ##########################################################
+            echo "BUILD_ARTIFACTS_SKI=${PWD}/build-artifacts-ski" >> $GITHUB_ENV
+            echo "KERNEL_VERSION_SKI=${KERNEL_VERSION}-ski" >> $GITHUB_ENV
+            ####################################################################
             echo "| :white_check_mark: | ${BRANCH} | ${KERNEL_VERSION} | hp_sim | ${USED_PATCHES} | ${CROSS_COMPILER_AND_VERSION} |" >> ${SUMMARY_FILE}
             true
           else
@@ -243,6 +252,14 @@ jobs:
           HP_SIM_KERNEL="${BUILD_DIR}/vmlinux"
           # exports ############################################################
           echo "HP_SIM_KERNEL=${HP_SIM_KERNEL}" >> $GITHUB_ENV
+
+      - uses: actions/upload-artifact@v4
+        id: artifact-upload-step-2
+        with:
+          name: ${{ env.KERNEL_VERSION_SKI }}
+          path: ${{ env.BUILD_ARTIFACTS_SKI }}/
+          compression-level: 0
+          retention-days: 4
 
       - name: ski_build_step
         run: |
