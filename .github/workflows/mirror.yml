@@ -122,7 +122,13 @@ jobs:
           # prepare tools ######################################################
           cd ${TOOLS_DIR}
           CROSS_COMPILER_URL=$( cat ./config/compiler-url )
-          wget "${CROSS_COMPILER_URL}" -O - | unxz | tar -xf -
+          CROSS_COMPILER_TARBALL=$( basename ${CROSS_COMPILER_URL} )
+          if wget "${CROSS_COMPILER_URL}" -O - | tee "${CROSS_COMPILER_TARBALL}" | sha256sum -c "./config/${CROSS_COMPILER_TARBALL}.SHA256"; then
+            tar -xf "${CROSS_COMPILER_TARBALL}"
+          else
+            echo "E: Problem when downloading cross-compiler. Cannot continue."
+            exit 1
+          fi
           CROSS_COMPILER_PATH=$( echo gcc-*/*-linux )
           PATH=$PATH:$PWD/${CROSS_COMPILER_PATH}/bin
           CROSS_COMPILER=$( basename ${CROSS_COMPILER_PATH}/bin/*-linux-gcc )

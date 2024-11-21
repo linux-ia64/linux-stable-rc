@@ -25,6 +25,8 @@
 
 # make-kernel - make kernel and modules (`all`) and install modules (`modules_install`) with given config
 
+set -o pipefail
+
 _debug=1
 
 # Config
