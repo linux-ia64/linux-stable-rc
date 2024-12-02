@@ -1,0 +1,30 @@
+From 20a96fcd06292486de96c8d53cb441909c036f84 Mon Sep 17 00:00:00 2001
+From: Johnny Mnemonic <jm@machine-hall.org>
+Date: Mon, 2 Dec 2024 22:46:09 +0100
+Subject: [PATCH 38/38] ia64: fix incomplete partial revert
+
+The partial revert in dae19098164a8deb9c67c186a24ef35819af48d3 was
+incomplete, making a build time check in mm/debug.c:
+```
+BUILD_BUG_ON(ARRAY_SIZE(pageflag_names) != __NR_PAGEFLAGS + 1);
+```
+...failing when `CONFIG_IA64_UNCACHED_ALLOCATOR=y` was used.
+---
+ include/trace/events/mmflags.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/trace/events/mmflags.h b/include/trace/events/mmflags.h
+index 84abc858ca3d..a5282c71932b 100644
+--- a/include/trace/events/mmflags.h
++++ b/include/trace/events/mmflags.h
+@@ -124,6 +124,7 @@
+ 	DEF_PAGEFLAG_NAME(swapbacked),					\
+ 	DEF_PAGEFLAG_NAME(unevictable)					\
+ IF_HAVE_PG_MLOCK(mlocked)						\
++IF_HAVE_PG_UNCACHED(uncached)						\
+ IF_HAVE_PG_HWPOISON(hwpoison)						\
+ IF_HAVE_PG_IDLE(idle)							\
+ IF_HAVE_PG_IDLE(young)							\
+-- 
+2.25.1
+
