@@ -175,7 +175,7 @@ jobs:
           cd "${TOOLS_DIR}"
           echo "| STATUS | BRANCH | VERSION | TYPE | USED PATCHES | COMPILER | DOWNLOAD |" >> ${SUMMARY_FILE}
           echo "| ------ | ------ | ------- | ---- | ------------ | -------- | -------- |" >> ${SUMMARY_FILE}
-          BUILD_COMMAND="time ./tools/make-kernel.bash ./config/linux-for-hp-integrities-v3 ia64 ${BUILD_DIR} gha tar-pkg"
+          BUILD_COMMAND="time ./tools/make-kernel.bash ./config/linux-for-hp-integrities-v7 ia64 ${BUILD_DIR} gha tar-pkg"
           if ${BUILD_COMMAND}; then
             mkdir build-artifacts && mv $( cat ${BUILD_DIR}/LINUX_BUILD_LOG ) $( cat ${BUILD_DIR}/LINUX_TARBALL ) build-artifacts/
             pushd build-artifacts/
