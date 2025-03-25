@@ -1,0 +1,80 @@
+From a80429efde3c1dff5917be39d0cec77a4951d5e2 Mon Sep 17 00:00:00 2001
+From: Johnny Mnemonic <jm@machine-hall.org>
+Date: Tue, 26 Nov 2024 10:53:17 +0100
+Subject: [PATCH 44/63] ia64: disable build time check
+
+...to avoid that build breakage (see below) for now until we have a better
+understanding of the reasons. Apparently get_order() behaves differently
+on ia64 than for example on x86_64, as identical input values (tested for
+4k page size!) break the build on ia64 but not on x86_64. Keep `#pragma`s,
+so we don't forget about this.
+
+Kernel also works fine with that check disabled (tested on rx2620, rx4640,
+rx2660, rx6600, rx2800-i2).
+
+****
+
+Build breakage with additional `#pragma`s:
+```
+  CC [M]  fs/ext4/fsmap.o
+mm/page_frag_cache.c: In function 'encoded_page_create':
+mm/page_frag_cache.c:30:9: note: '#pragma message: PAGE_FRAG_CACHE_MAX_ORDER = get_order(((((32768)) + ((~(~((1UL << 14) - 1))))) & ~((~(~((1UL << 14) - 1))))))'
+   30 | #pragma message "PAGE_FRAG_CACHE_MAX_ORDER = " XSTR(PAGE_FRAG_CACHE_MAX_ORDER)
+      |         ^~~~~~~
+mm/page_frag_cache.c:31:9: note: '#pragma message: PAGE_FRAG_CACHE_ORDER_MASK = ((((int)(sizeof(struct { int:(-!!(__builtin_choose_expr( (sizeof(int) == sizeof(*(8 ? ((void *)((long)((0) > (7)) * 0l)) : (int *)8))), (0) > (7), 0))); })))) + (((~((0UL))) - (((1UL)) << (0)) + 1) & (~((0UL)) >> (64 - 1 - (7)))))'
+   31 | #pragma message "PAGE_FRAG_CACHE_ORDER_MASK = " XSTR(PAGE_FRAG_CACHE_ORDER_MASK)
+      |         ^~~~~~~
+In file included from <command-line>:
+In function 'encoded_page_create',
+    inlined from '__page_frag_cache_refill' at mm/page_frag_cache.c:75:3,
+    inlined from '__page_frag_alloc_align' at mm/page_frag_cache.c:110:10:
+././include/linux/compiler_types.h:523:45: error: call to '__compiletime_assert_438' declared with attribute error: BUILD_BUG_ON failed: PAGE_FRAG_CACHE_MAX_ORDER > PAGE_FRAG_CACHE_ORDER_MASK
+  523 |         _compiletime_assert(condition, msg, __compiletime_assert_, __COUNTER__)
+      |                                             ^
+././include/linux/compiler_types.h:504:25: note: in definition of macro '__compiletime_assert'
+  504 |                         prefix ## suffix();                             \
+      |                         ^~~~~~
+././include/linux/compiler_types.h:523:9: note: in expansion of macro '_compiletime_assert'
+  523 |         _compiletime_assert(condition, msg, __compiletime_assert_, __COUNTER__)
+      |         ^~~~~~~~~~~~~~~~~~~
+./include/linux/build_bug.h:39:37: note: in expansion of macro 'compiletime_assert'
+   39 | #define BUILD_BUG_ON_MSG(cond, msg) compiletime_assert(!(cond), msg)
+      |                                     ^~~~~~~~~~~~~~~~~~
+./include/linux/build_bug.h:50:9: note: in expansion of macro 'BUILD_BUG_ON_MSG'
+   50 |         BUILD_BUG_ON_MSG(condition, "BUILD_BUG_ON failed: " #condition)
+      |         ^~~~~~~~~~~~~~~~
+mm/page_frag_cache.c:33:9: note: in expansion of macro 'BUILD_BUG_ON'
+   33 |         BUILD_BUG_ON(PAGE_FRAG_CACHE_MAX_ORDER > PAGE_FRAG_CACHE_ORDER_MASK);
+      |         ^~~~~~~~~~~~
+make[3]: *** [scripts/Makefile.build:229: mm/page_frag_cache.o] Error 1
+make[2]: *** [scripts/Makefile.build:478: mm] Error 2
+make[2]: *** Waiting for unfinished jobs....
+  CC      block/sed-opal.o
+```
+---
+ mm/page_frag_cache.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/mm/page_frag_cache.c b/mm/page_frag_cache.c
+index d2423f30577e..f257eef6a17a 100644
+--- a/mm/page_frag_cache.c
++++ b/mm/page_frag_cache.c
+@@ -23,7 +23,15 @@
+ static unsigned long encoded_page_create(struct page *page, unsigned int order,
+ 					 bool pfmemalloc)
+ {
++#define XSTR(x) STR(x)
++#define STR(x) #x
++
++#pragma message "PAGE_FRAG_CACHE_MAX_ORDER = " XSTR(PAGE_FRAG_CACHE_MAX_ORDER)
++#pragma message "PAGE_FRAG_CACHE_ORDER_MASK = " XSTR(PAGE_FRAG_CACHE_ORDER_MASK)
++
++#ifndef CONFIG_IA64
+ 	BUILD_BUG_ON(PAGE_FRAG_CACHE_MAX_ORDER > PAGE_FRAG_CACHE_ORDER_MASK);
++#endif
+ 	BUILD_BUG_ON(PAGE_FRAG_CACHE_PFMEMALLOC_BIT >= PAGE_SIZE);
+ 
+ 	return (unsigned long)page_address(page) |
+-- 
+2.25.1
+

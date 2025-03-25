@@ -1,0 +1,67 @@
+From 3313a72bb9dc720206fc782e2b52253dfb4ca88e Mon Sep 17 00:00:00 2001
+From: Tomas Glozar <tglozar@gmail.com>
+Date: Fri, 12 Jan 2024 18:54:34 +0100
+Subject: [PATCH 18/63] Revert "arch: remove ARCH_THREAD_STACK_ALLOCATOR"
+
+This reverts commit f72709ab69430d986dfc5a08c9a86f625e3fed33.
+---
+ arch/Kconfig  |  4 ++++
+ kernel/fork.c | 20 ++++++++++++++++++++
+ 2 files changed, 24 insertions(+)
+
+diff --git a/arch/Kconfig b/arch/Kconfig
+index b8a4ff365582..b7782364c0eb 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -334,6 +334,10 @@ config HAVE_ARCH_THREAD_STRUCT_WHITELIST
+ 	  should be implemented. Without this, the entire thread_struct
+ 	  field in task_struct will be left whitelisted.
+ 
++# Select if arch has its private alloc_thread_stack() function
++config ARCH_THREAD_STACK_ALLOCATOR
++	bool
++
+ # Select if arch wants to size task_struct dynamically via arch_task_struct_size:
+ config ARCH_WANTS_DYNAMIC_TASK_STRUCT
+ 	bool
+diff --git a/kernel/fork.c b/kernel/fork.c
+index f899732ca43e..46d5b7a1cec2 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -185,6 +185,8 @@ static inline void free_task_struct(struct task_struct *tsk)
+ 	kmem_cache_free(task_struct_cachep, tsk);
+ }
+ 
++#ifndef CONFIG_ARCH_THREAD_STACK_ALLOCATOR
++
+ /*
+  * Allocate pages if THREAD_SIZE is >= PAGE_SIZE, otherwise use a
+  * kmemcache based allocator.
+@@ -417,6 +419,24 @@ void thread_stack_cache_init(void)
+ }
+ 
+ # endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
++#else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
++
++static int alloc_thread_stack_node(struct task_struct *tsk, int node)
++{
++	unsigned long *stack;
++
++	stack = arch_alloc_thread_stack_node(tsk, node);
++	tsk->stack = stack;
++	return stack ? 0 : -ENOMEM;
++}
++
++static void free_thread_stack(struct task_struct *tsk)
++{
++	arch_free_thread_stack(tsk);
++	tsk->stack = NULL;
++}
++
++#endif /* !CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
+ 
+ /* SLAB cache for signal_struct structures (tsk->signal) */
+ static struct kmem_cache *signal_cachep;
+-- 
+2.25.1
+

@@ -1,0 +1,175 @@
+From 47e345ca7ad0ddd8c46a1482be31c56dfbb1de2b Mon Sep 17 00:00:00 2001
+From: Johnny Mnemonic <jm@machine-hall.org>
+Date: Mon, 10 Feb 2025 15:17:38 +0100
+Subject: [PATCH 59/63] Partially revert "Documentation: Remove IA-64 from
+ kernel-parameters"
+
+Keep the following removals of:
+
+* hcl - because Altix support is gone with 76f0f227cffb570bc5ce343b1750f14907371d80
+
+* machvec - because mach(ine) vectors are also history with the above merge
+  commit
+
+This partially reverts commit 661404644db468f0f56c1dd8c4085358c1c35ba0.
+---
+ .../admin-guide/kernel-parameters.rst         |  1 +
+ .../admin-guide/kernel-parameters.txt         | 39 +++++++++++++++++--
+ 2 files changed, 37 insertions(+), 3 deletions(-)
+
+diff --git a/Documentation/admin-guide/kernel-parameters.rst b/Documentation/admin-guide/kernel-parameters.rst
+index 39d0e7ff0965..6ede8c85eb8f 100644
+--- a/Documentation/admin-guide/kernel-parameters.rst
++++ b/Documentation/admin-guide/kernel-parameters.rst
+@@ -133,6 +133,7 @@ is applicable::
+ 	HIBERNATION HIBERNATION is enabled.
+ 	HW	Appropriate hardware is enabled.
+ 	HYPER_V HYPERV support is enabled.
++	IA-64	IA-64 architecture is enabled.
+ 	IMA     Integrity measurement architecture is enabled.
+ 	IP_PNP	IP DHCP, BOOTP, or RARP is enabled.
+ 	IPV6	IPv6 support is enabled.
+diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
+index 0b1544af4972..841beafa88c0 100644
+--- a/Documentation/admin-guide/kernel-parameters.txt
++++ b/Documentation/admin-guide/kernel-parameters.txt
+@@ -2640,7 +2640,7 @@
+ 
+ 	keepinitrd	[HW,ARM] See retain_initrd.
+ 
+-	kernelcore=	[KNL,X86,PPC,EARLY]
++	kernelcore=	[KNL,X86,IA-64,PPC,EARLY]
+ 			Format: nn[KMGTPE] | nn% | "mirror"
+ 			This parameter specifies the amount of memory usable by
+ 			the kernel for non-movable allocations.  The requested
+@@ -3329,6 +3329,9 @@
+ 			different yeeloong laptops.
+ 			Example: machtype=lemote-yeeloong-2f-7inch
+ 
++	max_addr=nn[KMG]	[KNL,BOOT,IA-64] All physical memory greater
++			than or equal to this physical address is ignored.
++
+ 	maxcpus=	[SMP,EARLY] Maximum number of processors that an SMP kernel
+ 			will bring up during bootup.  maxcpus=n : n >= 0 limits
+ 			the kernel to bring up 'n' processors. Surely after
+@@ -3634,6 +3637,9 @@
+ 			Enable or disable the microcode minimal revision
+ 			enforcement for the runtime microcode loader.
+ 
++	min_addr=nn[KMG]	[KNL,BOOT,IA-64] All physical memory below this
++			physical address is ignored.
++
+ 	mini2440=	[ARM,HW,KNL]
+ 			Format:[0..2][b][c][t]
+ 			Default: "0tb"
+@@ -3798,7 +3804,7 @@
+ 	mousedev.yres=	[MOUSE] Vertical screen resolution, used for devices
+ 			reporting absolute coordinates, such as tablets
+ 
+-	movablecore=	[KNL,X86,PPC,EARLY]
++	movablecore=	[KNL,X86,IA-64,PPC,EARLY]
+ 			Format: nn[KMGTPE] | nn%
+ 			This parameter is the complement to kernelcore=, it
+ 			specifies the amount of memory used for migratable
+@@ -4071,6 +4077,8 @@
+ 
+ 	no_entry_flush  [PPC,EARLY] Don't flush the L1-D cache when entering the kernel.
+ 
++	noexec		[IA-64]
++
+ 	noexec32	[X86-64]
+ 			This affects only 32-bit executables.
+ 			noexec32=on: enable non-executable mappings (default)
+@@ -4092,6 +4100,13 @@
+ 
+ 	nogbpages	[X86] Do not use GB pages for kernel direct mappings.
+ 
++	nohalt		[IA-64] Tells the kernel not to use the power saving
++			function PAL_HALT_LIGHT when idle. This increases
++			power-consumption. On the positive side, it reduces
++			interrupt wake-up latency, which may improve performance
++			in certain environments such as networked servers or
++			real-time systems.
++
+ 	no_hash_pointers
+ 			[KNL,EARLY]
+ 			Force pointers printed to the console or buffers to be
+@@ -4148,6 +4163,8 @@
+ 			remapping.
+ 			[Deprecated - use intremap=off]
+ 
++	nointroute	[IA-64]
++
+ 	noinvpcid	[X86,EARLY] Disable the INVPCID cpu feature.
+ 
+ 	noiotrap	[SH] Disables trapped I/O port accesses.
+@@ -4157,6 +4174,8 @@
+ 
+ 	noisapnp	[ISAPNP] Disables ISA PnP code.
+ 
++	nojitter	[IA-64] Disables jitter checking for ITC timers.
++
+ 	nokaslr		[KNL,EARLY]
+ 			When CONFIG_RANDOMIZE_BASE is set, this disables
+ 			kernel and module base offset ASLR (Address Space
+@@ -4171,6 +4190,8 @@
+ 
+ 	nolapic_timer	[X86-32,APIC,EARLY] Do not use the local APIC timer.
+ 
++	nomca		[IA-64] Disable machine check abort handling
++
+ 	nomce		[X86-32] Disable Machine Check Exception
+ 
+ 	nomfgpt		[X86-32] Disable Multi-Function General Purpose
+@@ -4222,6 +4243,8 @@
+ 	noresume	[SWSUSP] Disables resume and restores original swap
+ 			space.
+ 
++	nosbagart	[IA-64]
++
+ 	no-scroll	[VGA] Disables scrollback.
+ 			This is required for the Braillex ib80-piezo Braille
+ 			reader made by F.H. Papenmeier (Germany).
+@@ -4324,6 +4347,10 @@
+ 			parameter, xsave area per process might occupy more
+ 			memory on xsaves enabled systems.
+ 
++	nptcg=		[IA-64] Override max number of concurrent global TLB
++			purges which is reported from either PAL_VM_SUMMARY or
++			SAL PALO.
++
+ 	nr_cpus=	[SMP,EARLY] Maximum number of processors that an SMP kernel
+ 			could support.  nr_cpus=n : n >= 1 limits the kernel to
+ 			support 'n' processors. It could be larger than the
+@@ -6433,6 +6460,9 @@
+ 			apic=verbose is specified.
+ 			Example: apic=debug show_lapic=all
+ 
++	simeth=		[IA-64]
++	simscsi=
++
+ 	slab_debug[=options[,slabs][;[options[,slabs]]...]	[MM]
+ 			Enabling slab_debug allows one to determine the
+ 			culprit if slab objects become corrupted. Enabling
+@@ -6965,7 +6995,7 @@
+ 			This parameter controls use of the Protected
+ 			Execution Facility on pSeries.
+ 
+-	swiotlb=	[ARM,PPC,MIPS,X86,S390,EARLY]
++	swiotlb=	[ARM,IA-64,PPC,MIPS,X86,S390,EARLY]
+ 			Format: { <int> [,<int>] | force | noforce }
+ 			<int> -- Number of I/O TLB slabs
+ 			<int> -- Second integer after comma. Number of swiotlb
+@@ -7705,6 +7735,9 @@
+ 			Try vdso32=0 if you encounter an error that says:
+ 			dl_main: Assertion `(void *) ph->p_vaddr == _rtld_local._dl_sysinfo_dso' failed!
+ 
++	vector=		[IA-64,SMP]
++			vector=percpu: enable percpu vector domain
++
+ 	video=		[FB,EARLY] Frame buffer configuration
+ 			See Documentation/fb/modedb.rst.
+ 
+-- 
+2.25.1
+

@@ -1,0 +1,140 @@
+From 94c02923823deb483d9a484b60de77f70e02fc1a Mon Sep 17 00:00:00 2001
+From: Tomas Glozar <tglozar@gmail.com>
+Date: Thu, 11 Jan 2024 14:21:54 +0100
+Subject: [PATCH 17/63] Revert "mm: remove unnecessary ia64 code and comment"
+
+This reverts commit e99fb98d478a0480d50e334df21bef12fb74e17f.
+---
+ mm/Kconfig      |  2 +-
+ mm/memory.c     |  4 +++-
+ mm/mm_init.c    | 50 +++++++++++++++++++++++++++++--------------------
+ mm/page_owner.c |  8 ++++++++
+ 4 files changed, 42 insertions(+), 22 deletions(-)
+
+diff --git a/mm/Kconfig b/mm/Kconfig
+index 1b501db06417..9273c11bb744 100644
+--- a/mm/Kconfig
++++ b/mm/Kconfig
+@@ -792,7 +792,7 @@ config DEFAULT_MMAP_MIN_ADDR
+ 	  from userspace allocation.  Keeping a user from writing to low pages
+ 	  can help reduce the impact of kernel NULL pointer bugs.
+ 
+-	  For most arm64, ppc64 and x86 users with lots of address space
++	  For most arm64, ia64, ppc64 and x86 users with lots of address space
+ 	  a value of 65536 is reasonable and should cause no problems.
+ 	  On arm and other archs it should not be higher than 32768.
+ 	  Programs which use vm86 functionality or have some need to map
+diff --git a/mm/memory.c b/mm/memory.c
+index fb7b8dc75167..40bfc5609641 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -123,7 +123,9 @@ static __always_inline bool vmf_orig_pte_uffd_wp(struct vm_fault *vmf)
+ /*
+  * A number of key systems in x86 including ioremap() rely on the assumption
+  * that high_memory defines the upper bound on direct map memory, then end
+- * of ZONE_NORMAL.
++ * of ZONE_NORMAL.  Under CONFIG_DISCONTIG this means that max_low_pfn and
++ * highstart_pfn must be the same; there must be no gap between ZONE_NORMAL
++ * and ZONE_HIGHMEM.
+  */
+ void *high_memory;
+ EXPORT_SYMBOL(high_memory);
+diff --git a/mm/mm_init.c b/mm/mm_init.c
+index 2630cc30147e..0edf97e10d8c 100644
+--- a/mm/mm_init.c
++++ b/mm/mm_init.c
+@@ -1485,7 +1485,8 @@ void __init set_pageblock_order(void)
+ 
+ 	/*
+ 	 * Assume the largest contiguous order of interest is a huge page.
+-	 * This value may be variable depending on boot parameters on powerpc.
++	 * This value may be variable depending on boot parameters on IA64 and
++	 * powerpc.
+ 	 */
+ 	pageblock_order = order;
+ }
+@@ -1607,8 +1608,8 @@ void __init *memmap_alloc(phys_addr_t size, phys_addr_t align,
+ #ifdef CONFIG_FLATMEM
+ static void __init alloc_node_mem_map(struct pglist_data *pgdat)
+ {
+-	unsigned long start, offset, size, end;
+-	struct page *map;
++	unsigned long __maybe_unused start = 0;
++	unsigned long __maybe_unused offset = 0;
+ 
+ 	/* Skip empty nodes */
+ 	if (!pgdat->node_spanned_pages)
+@@ -1616,25 +1617,34 @@ static void __init alloc_node_mem_map(struct pglist_data *pgdat)
+ 
+ 	start = pgdat->node_start_pfn & ~(MAX_ORDER_NR_PAGES - 1);
+ 	offset = pgdat->node_start_pfn - start;
+-	/*
+-		 * The zone's endpoints aren't required to be MAX_PAGE_ORDER
+-	 * aligned but the node_mem_map endpoints must be in order
+-	 * for the buddy allocator to function correctly.
+-	 */
+-	end = ALIGN(pgdat_end_pfn(pgdat), MAX_ORDER_NR_PAGES);
+-	size =  (end - start) * sizeof(struct page);
+-	map = memmap_alloc(size, SMP_CACHE_BYTES, MEMBLOCK_LOW_LIMIT,
+-			   pgdat->node_id, false);
+-	if (!map)
+-		panic("Failed to allocate %ld bytes for node %d memory map\n",
+-		      size, pgdat->node_id);
+-	pgdat->node_mem_map = map + offset;
+-	memmap_boot_pages_add(DIV_ROUND_UP(size, PAGE_SIZE));
++	/* ia64 gets its own node_mem_map, before this, without bootmem */
++	if (!pgdat->node_mem_map) {
++		unsigned long size, end;
++		struct page *map;
++
++		/*
++		 * The zone's endpoints aren't required to be MAX_ORDER
++		 * aligned but the node_mem_map endpoints must be in order
++		 * for the buddy allocator to function correctly.
++		 */
++		end = ALIGN(pgdat_end_pfn(pgdat), MAX_ORDER_NR_PAGES);
++		size =  (end - start) * sizeof(struct page);
++		map = memmap_alloc(size, SMP_CACHE_BYTES, MEMBLOCK_LOW_LIMIT,
++				   pgdat->node_id, false);
++		if (!map)
++			panic("Failed to allocate %ld bytes for node %d memory map\n",
++			      size, pgdat->node_id);
++		pgdat->node_mem_map = map + offset;
++		memmap_boot_pages_add(DIV_ROUND_UP(size, PAGE_SIZE));
++	}
++
+ 	pr_debug("%s: node %d, pgdat %08lx, node_mem_map %08lx\n",
+-		 __func__, pgdat->node_id, (unsigned long)pgdat,
+-		 (unsigned long)pgdat->node_mem_map);
++				__func__, pgdat->node_id, (unsigned long)pgdat,
++				(unsigned long)pgdat->node_mem_map);
+ #ifndef CONFIG_NUMA
+-	/* the global mem_map is just set as node 0's */
++	/*
++	 * With no DISCONTIG, the global mem_map is just set as node 0's
++	 */
+ 	if (pgdat == NODE_DATA(0)) {
+ 		mem_map = NODE_DATA(0)->node_mem_map;
+ 		if (page_to_pfn(mem_map) != pgdat->node_start_pfn)
+diff --git a/mm/page_owner.c b/mm/page_owner.c
+index 2d6360eaccbb..427d3d385ab2 100644
+--- a/mm/page_owner.c
++++ b/mm/page_owner.c
+@@ -149,6 +149,14 @@ static noinline depot_stack_handle_t save_stack(gfp_t flags)
+ 	depot_stack_handle_t handle;
+ 	unsigned int nr_entries;
+ 
++	/*
++	 * Avoid recursion.
++	 *
++	 * Sometimes page metadata allocation tracking requires more
++	 * memory to be allocated:
++	 * - when new stack trace is saved to stack depot
++	 * - when backtrace itself is calculated (ia64)
++	 */
+ 	if (current->in_page_owner)
+ 		return dummy_handle;
+ 
+-- 
+2.25.1
+
