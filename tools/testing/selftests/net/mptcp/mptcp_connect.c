@@ -734,7 +734,7 @@ static int copyfd_io(int infd, int peerfd, int outfd)
 	}
 
 	if (ret)
-		return ret;
+		goto out;
 
 	if (cfg_time) {
 		unsigned int delta_ms;
@@ -754,7 +754,10 @@ static int copyfd_io(int infd, int peerfd, int outfd)
 			fprintf(stderr, "%d", delta_ms);
 	}
 
-	return 0;
+out:
+	if (cfg_input)
+		close(fd_in);
+	return ret;
 }
 
 static void check_sockaddr(int pf, struct sockaddr_storage *ss,
