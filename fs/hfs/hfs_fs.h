@@ -193,6 +193,7 @@ extern const struct inode_operations hfs_dir_inode_operations;
 
 /* extent.c */
 extern int hfs_ext_keycmp(const btree_key *key1, const btree_key *key2);
+extern u16 hfs_ext_find_block(struct hfs_extent *ext, u16 off);
 extern int hfs_free_fork(struct super_block *sb,
 			 struct hfs_cat_file *file, int type);
 extern int hfs_ext_write_extent(struct inode *inode);
