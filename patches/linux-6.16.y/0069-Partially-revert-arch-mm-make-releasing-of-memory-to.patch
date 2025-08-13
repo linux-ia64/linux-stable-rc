@@ -1,0 +1,81 @@
+From c668c12eba81d7b80b33d0e4fb87b1fe14d719f2 Mon Sep 17 00:00:00 2001
+From: Johnny Mnemonic <jm@machine-hall.org>
+Date: Wed, 2 Apr 2025 16:37:51 +0200
+Subject: [PATCH 69/73] Partially revert "arch, mm: make releasing of memory to
+ page [...]"
+
+zx1 and possibly zx2 systems require the call to memblock_free_all() in
+mem_init() in `arch/ia64/mm/init.c`. Otherwise they are stuck after
+loading kernel (and initrd) with no further output. So make
+memblock_free_all() available again to ia64 and do not follow through
+with the per-arch changes in 8afa901c147a41f92e83943cddf154bbb7995ee6
+for ia64.
+
+This partially reverts 8afa901c147a41f92e83943cddf154bbb7995ee6.
+---
+ arch/ia64/mm/init.c      | 8 ++++++++
+ include/linux/memblock.h | 1 +
+ mm/internal.h            | 1 -
+ mm/mm_init.c             | 2 ++
+ 4 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index b13bfbff9c7f..3df9306f5917 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -465,6 +465,14 @@ mem_init (void)
+ #endif
+ 
+ 	high_memory = __va(max_low_pfn * PAGE_SIZE);
++	/*
++	 * CAUTION:
++	 *
++	 * zx1 and possibly zx2 systems require the following call at this place!
++	 *
++	 * Otherwise they are stuck after loading kernel (and initrd) with no
++	 * further output.
++	 */
+ 	memblock_free_all();
+ 
+ 	/*
+diff --git a/include/linux/memblock.h b/include/linux/memblock.h
+index bb19a2534224..497e2c1364a6 100644
+--- a/include/linux/memblock.h
++++ b/include/linux/memblock.h
+@@ -157,6 +157,7 @@ int memblock_reserved_mark_noinit(phys_addr_t base, phys_addr_t size);
+ int memblock_mark_kho_scratch(phys_addr_t base, phys_addr_t size);
+ int memblock_clear_kho_scratch(phys_addr_t base, phys_addr_t size);
+ 
++void memblock_free_all(void);
+ void memblock_free(void *ptr, size_t size);
+ void reset_all_zones_managed_pages(void);
+ 
+diff --git a/mm/internal.h b/mm/internal.h
+index 6b8ed2017743..9c83fee7b334 100644
+--- a/mm/internal.h
++++ b/mm/internal.h
+@@ -1488,7 +1488,6 @@ static inline bool gup_must_unshare(struct vm_area_struct *vma,
+ 
+ extern bool mirrored_kernelcore;
+ bool memblock_has_mirror(void);
+-void memblock_free_all(void);
+ 
+ static __always_inline void vma_set_range(struct vm_area_struct *vma,
+ 					  unsigned long start, unsigned long end,
+diff --git a/mm/mm_init.c b/mm/mm_init.c
+index c062c31e3548..e04dcab688d1 100644
+--- a/mm/mm_init.c
++++ b/mm/mm_init.c
+@@ -2773,7 +2773,9 @@ void __init mm_core_init(void)
+ 	 */
+ 	kho_memory_init();
+ 
++#ifndef CONFIG_IA64
+ 	memblock_free_all();
++#endif
+ 	mem_init();
+ 	kmem_cache_init();
+ 	/*
+-- 
+2.25.1
+
