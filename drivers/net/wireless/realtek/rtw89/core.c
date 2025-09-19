@@ -3389,6 +3389,7 @@ static int rtw89_core_send_nullfunc(struct rtw89_dev *rtwdev,
 	rtwsta_link = rtwsta->links[rtwvif_link->link_id];
 	if (unlikely(!rtwsta_link)) {
 		ret = -ENOLINK;
+		dev_kfree_skb_any(skb);
 		goto out;
 	}
 
