@@ -1,0 +1,25 @@
+From bec46bd32738ce2aa319aaccfd266f126e9d9f68 Mon Sep 17 00:00:00 2001
+From: Tomas Glozar <tglozar@gmail.com>
+Date: Sun, 24 Mar 2024 20:20:36 +0100
+Subject: [PATCH 23/90] Revert "hpet: remove hpets::hp_clocksource"
+
+This reverts commit b44abdd29423a77074a9edb462de37f1a09daaab.
+---
+ drivers/char/hpet.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/char/hpet.c b/drivers/char/hpet.c
+index 35db08218e56..bec6a86c7c75 100644
+--- a/drivers/char/hpet.c
++++ b/drivers/char/hpet.c
+@@ -106,6 +106,7 @@ struct hpets {
+ 	struct hpets *hp_next;
+ 	struct hpet __iomem *hp_hpet;
+ 	unsigned long hp_hpet_phys;
++	struct clocksource *hp_clocksource;
+ 	unsigned long long hp_tick_freq;
+ 	unsigned long hp_delta;
+ 	unsigned int hp_ntimer;
+-- 
+2.25.1
+

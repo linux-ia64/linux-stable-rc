@@ -1,0 +1,74 @@
+From bac2b71aa0f1c041340d54cb2cd1f36ffad1dfb3 Mon Sep 17 00:00:00 2001
+From: Xinhui Yang <cyan@cyano.uk>
+Date: Sun, 7 Sep 2025 21:08:46 +0800
+Subject: [PATCH 88/90] acpica: swap the header comprasion order in tbprint
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+On IA-64, the use of strncmp in the comparison against FACS signature
+will let GCC assume that the signature is exactly 4 bytes long in the
+header, so the subsequent comparison against the RSDP signature will
+emit a string operation overread warning:
+
+In file included from ./include/acpi/acpi.h:24,
+                 from drivers/acpi/acpica/tbprint.c:10:
+drivers/acpi/acpica/tbprint.c: In function ‘acpi_tb_print_table_header’:
+./include/acpi/actypes.h:530:43: error: ‘strncmp’ argument 1 declared attribute ‘nonstring’ is smaller than the specified bound 8 [-Werror=stringop-overread]
+  530 | #define ACPI_VALIDATE_RSDP_SIG(a)       (!strncmp (ACPI_CAST_PTR (char, (a)), ACPI_SIG_RSDP, (sizeof(a) < 8) ? ACPI_NAMESEG_SIZE : 8))
+      |                                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+drivers/acpi/acpica/tbprint.c:105:20: note: in expansion of macro ‘ACPI_VALIDATE_RSDP_SIG’
+  105 |         } else if (ACPI_VALIDATE_RSDP_SIG(ACPI_CAST_PTR(struct acpi_table_rsdp,
+      |                    ^~~~~~~~~~~~~~~~~~~~~~
+In file included from ./include/acpi/acpi.h:26:
+./include/acpi/actbl.h:69:14: note: argument ‘signature’ declared here
+   69 |         char signature[ACPI_NAMESEG_SIZE] ACPI_NONSTRING;       /* ASCII table signature */
+      |              ^~~~~~~~~
+cc1: all warnings being treated as errors
+
+By comparing against RSDP signature first, we can make GCC assume that
+the signature may be 8 bytes long, thus working around this check.
+
+Signed-off-by: Xinhui Yang <cyan@cyano.uk>
+---
+ drivers/acpi/acpica/tbprint.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/acpi/acpica/tbprint.c b/drivers/acpi/acpica/tbprint.c
+index fd64460a2e26..6dec08a7eeeb 100644
+--- a/drivers/acpi/acpica/tbprint.c
++++ b/drivers/acpi/acpica/tbprint.c
+@@ -94,15 +94,7 @@ acpi_tb_print_table_header(acpi_physical_address address,
+ 			   struct acpi_table_header *header)
+ {
+ 	struct acpi_table_header local_header;
+-
+-	if (ACPI_COMPARE_NAMESEG(header->signature, ACPI_SIG_FACS)) {
+-
+-		/* FACS only has signature and length fields */
+-
+-		ACPI_INFO(("%-4.4s 0x%8.8X%8.8X %06X",
+-			   header->signature, ACPI_FORMAT_UINT64(address),
+-			   header->length));
+-	} else if (ACPI_VALIDATE_RSDP_SIG(ACPI_CAST_PTR(struct acpi_table_rsdp,
++	if (ACPI_VALIDATE_RSDP_SIG(ACPI_CAST_PTR(struct acpi_table_rsdp,
+ 							header)->signature)) {
+ 
+ 		/* RSDP has no common fields */
+@@ -121,6 +113,13 @@ acpi_tb_print_table_header(acpi_physical_address address,
+ 			   ACPI_CAST_PTR(struct acpi_table_rsdp,
+ 					 header)->revision,
+ 			   local_header.oem_id));
++	} else if (ACPI_COMPARE_NAMESEG(header->signature, ACPI_SIG_FACS)) {
++
++		/* FACS only has signature and length fields */
++
++		ACPI_INFO(("%-4.4s 0x%8.8X%8.8X %06X",
++			   header->signature, ACPI_FORMAT_UINT64(address),
++			   header->length));
+ 	} else {
+ 		/* Standard ACPI table with full common header */
+ 
+-- 
+2.25.1
+
