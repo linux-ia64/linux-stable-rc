@@ -164,10 +164,14 @@ jobs:
             echo "EXIT_EARLY=1" >> $GITHUB_ENV
             exit 0
           fi
+          HUNK_FAILED=0
           if [[ -e ${TOOLS_DIR}/patches/${BRANCH}/ ]]; then
             for patch in ${TOOLS_DIR}/patches/${BRANCH}/*patch; do
-              patch -p1 < ${patch} || true
+              patch -p1 < ${patch} || HUNK_FAILED=1
             done
+            if [[ $HUNK_FAILED -eq 1 ]]; then
+              false
+            fi
           else
             USED_PATCHES="no extra patches needed"
           fi
@@ -223,10 +227,14 @@ jobs:
           cd ${BUILD_DIR}
           KERNEL_VERSION=$( git log --oneline | head -n1 | grep -o "Linux\ .*" )
           make mrproper
+          HUNK_FAILED=0
           if [[ -e ${HP_SIM_DIR}/${BRANCH}/ ]]; then
             for patch in ${HP_SIM_DIR}/${BRANCH}/*patch; do
-              patch -p1 < ${patch} || true
+              patch -p1 < ${patch} || HUNK_FAILED=1
             done
+            if [[ $HUNK_FAILED -eq 1 ]]; then
+              false
+            fi
           else
             USED_PATCHES="no extra patches needed"
           fi
