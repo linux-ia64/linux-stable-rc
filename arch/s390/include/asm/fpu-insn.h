@@ -12,6 +12,7 @@
 #ifndef __ASSEMBLY__
 
 #include <linux/instrumented.h>
+#include <linux/kmsan.h>
 #include <asm/asm-extable.h>
 
 asm(".include \"asm/fpu-insn-asm.h\"\n");
@@ -377,6 +378,7 @@ static __always_inline void fpu_vst(u8 v1, const void *vxr)
 		     : [vxr] "=Q" (*(__vector128 *)vxr)
 		     : [v1] "I" (v1)
 		     : "memory");
+	kmsan_unpoison_memory(vxr, size);
 }
 
 #endif /* CONFIG_CC_IS_CLANG */
@@ -395,6 +397,7 @@ static __always_inline void fpu_vstl(u8 v1, u32 index, const void *vxr)
 		: [vxr] "=R" (*(u8 *)vxr)
 		: [index] "d" (index), [v1] "I" (v1)
 		: "memory", "1");
+	kmsan_unpoison_memory(vxr, size);
 }
 
 #else /* CONFIG_CC_IS_CLANG */
