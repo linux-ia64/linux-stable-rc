@@ -6769,7 +6769,6 @@ static int set_file_mode_info(struct ksmbd_file *fp,
  * @share:	ksmbd_share_config pointer
  *
  * Return:	0 on success, otherwise error
- * TODO: need to implement an error handling for STATUS_INFO_LENGTH_MISMATCH
  */
 static int smb2_set_info_file(struct ksmbd_work *work, struct ksmbd_file *fp,
 			      struct smb2_set_info_req *req,
@@ -6782,14 +6781,14 @@ static int smb2_set_info_file(struct ksmbd_work *work, struct ksmbd_file *fp,
 	case FILE_BASIC_INFORMATION:
 	{
 		if (buf_len < sizeof(struct smb2_file_basic_info))
-			return -EINVAL;
+			return -EMSGSIZE;
 
 		return set_file_basic_info(fp, (struct smb2_file_basic_info *)buffer, share);
 	}
 	case FILE_ALLOCATION_INFORMATION:
 	{
 		if (buf_len < sizeof(struct smb2_file_alloc_info))
-			return -EINVAL;
+			return -EMSGSIZE;
 
 		return set_file_allocation_info(work, fp,
 						(struct smb2_file_alloc_info *)buffer);
@@ -6797,7 +6796,7 @@ static int smb2_set_info_file(struct ksmbd_work *work, struct ksmbd_file *fp,
 	case FILE_END_OF_FILE_INFORMATION:
 	{
 		if (buf_len < sizeof(struct smb2_file_eof_info))
-			return -EINVAL;
+			return -EMSGSIZE;
 
 		return set_end_of_file_info(work, fp,
 					    (struct smb2_file_eof_info *)buffer);
@@ -6805,7 +6804,7 @@ static int smb2_set_info_file(struct ksmbd_work *work, struct ksmbd_file *fp,
 	case FILE_RENAME_INFORMATION:
 	{
 		if (buf_len < sizeof(struct smb2_file_rename_info))
-			return -EINVAL;
+			return -EMSGSIZE;
 
 		return set_rename_info(work, fp,
 				       (struct smb2_file_rename_info *)buffer,
@@ -6816,7 +6815,7 @@ static int smb2_set_info_file(struct ksmbd_work *work, struct ksmbd_file *fp,
 		struct smb2_file_link_info *file_info;
 
 		if (buf_len < sizeof(struct smb2_file_link_info))
-			return -EINVAL;
+			return -EMSGSIZE;
 
 		file_info = (struct smb2_file_link_info *)buffer;
 		if (file_info->ReplaceIfExists && !(fp->daccess & FILE_DELETE_LE)) {
@@ -6831,7 +6830,7 @@ static int smb2_set_info_file(struct ksmbd_work *work, struct ksmbd_file *fp,
 	case FILE_DISPOSITION_INFORMATION:
 	{
 		if (buf_len < sizeof(struct smb2_file_disposition_info))
-			return -EINVAL;
+			return -EMSGSIZE;
 
 		return set_file_disposition_info(work, fp,
 						 (struct smb2_file_disposition_info *)buffer);
@@ -6845,7 +6844,7 @@ static int smb2_set_info_file(struct ksmbd_work *work, struct ksmbd_file *fp,
 		}
 
 		if (buf_len < sizeof(struct smb2_ea_info))
-			return -EINVAL;
+			return -EMSGSIZE;
 
 		return smb2_set_ea((struct smb2_ea_info *)buffer,
 				   buf_len, &fp->filp->f_path, true);
@@ -6853,14 +6852,14 @@ static int smb2_set_info_file(struct ksmbd_work *work, struct ksmbd_file *fp,
 	case FILE_POSITION_INFORMATION:
 	{
 		if (buf_len < sizeof(struct smb2_file_pos_info))
-			return -EINVAL;
+			return -EMSGSIZE;
 
 		return set_file_position_info(fp, (struct smb2_file_pos_info *)buffer);
 	}
 	case FILE_MODE_INFORMATION:
 	{
 		if (buf_len < sizeof(struct smb2_file_mode_info))
-			return -EINVAL;
+			return -EMSGSIZE;
 
 		return set_file_mode_info(fp, (struct smb2_file_mode_info *)buffer);
 	}
@@ -6968,6 +6967,8 @@ err_out:
 		rsp->hdr.Status = STATUS_ACCESS_DENIED;
 	else if (rc == -EINVAL)
 		rsp->hdr.Status = STATUS_INVALID_PARAMETER;
+	else if (rc == -EMSGSIZE)
+		rsp->hdr.Status = STATUS_INFO_LENGTH_MISMATCH;
 	else if (rc == -ESHARE)
 		rsp->hdr.Status = STATUS_SHARING_VIOLATION;
 	else if (rc == -ENOENT)
