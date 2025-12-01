@@ -94,7 +94,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: johnny-mnemonic/ski
-          ref: master
+          ref: update-processor
           path: ski
 
       - name: prepare_step
@@ -123,12 +123,15 @@ jobs:
           cd ${TOOLS_DIR}
           CROSS_COMPILER_URL=$( cat ./config/compiler-url )
           CROSS_COMPILER_TARBALL=$( basename ${CROSS_COMPILER_URL} )
-          if wget "${CROSS_COMPILER_URL}" -O - | tee "${CROSS_COMPILER_TARBALL}" | sha256sum -c "./config/${CROSS_COMPILER_TARBALL}.SHA256"; then
+          if wget "${CROSS_COMPILER_URL}" -O - 2>download.log | tee "${CROSS_COMPILER_TARBALL}" | sha256sum -c "./config/${CROSS_COMPILER_TARBALL}.SHA256"; then
+            tail -2 download.log | head -1
             tar -xf "${CROSS_COMPILER_TARBALL}"
           else
+            tail download.log
             echo "E: Problem when downloading cross-compiler. Cannot continue."
             exit 1
           fi
+          rm -f download.log
           CROSS_COMPILER_PATH=$( echo gcc-*/*-linux )
           PATH=$PATH:$PWD/${CROSS_COMPILER_PATH}/bin
           CROSS_COMPILER=$( basename ${CROSS_COMPILER_PATH}/bin/*-linux-gcc )
@@ -240,7 +243,7 @@ jobs:
           fi
           # build hp sim kernel ################################################
           cd "${TOOLS_DIR}"
-          BUILD_COMMAND="time ./tools/make-kernel.bash ${BUILD_DIR}/arch/ia64/configs/sim_defconfig ia64 ${BUILD_DIR} ski-gha tar-pkg"
+          BUILD_COMMAND="time ./tools/make-kernel.bash ./config/linux-for-hp-ski-v6 ia64 ${BUILD_DIR} ski-gha tar-pkg"
           if ${BUILD_COMMAND}; then
             mkdir build-artifacts-ski && mv $( cat ${BUILD_DIR}/LINUX_BUILD_LOG ) $( cat ${BUILD_DIR}/LINUX_TARBALL ) build-artifacts-ski/
             pushd build-artifacts-ski/
@@ -285,7 +288,7 @@ jobs:
           echo "| ------ | ---- | -------- |" >> ${SUMMARY_FILE}
           if \
             ./autogen.sh && \
-            ./configure --prefix=${SKI_DIR}/install && \
+            ./configure --prefix=${SKI_DIR}/install --enable-tuntap && \
             make -j$( nproc ) && \
             make -j$( nproc ) install; then
             echo "| :white_check_mark: | ski | ${COMPILER_AND_VERSION} |" >> ${SUMMARY_FILE}
@@ -324,14 +327,20 @@ jobs:
           cp ${TOOLS_DIR}/tools/run-ski-test.bash ${TOOLS_DIR}/config/sdc-debian.xz.SHA256 .
           chmod +x run-ski-test.bash
           IA64_ROOTFS_URL=$( cat ${TOOLS_DIR}/config/ia64-rootfs-url )
-          wget "${IA64_ROOTFS_URL}"
+          wget "${IA64_ROOTFS_URL}" -o download.log
+          if [[ $? -eq 0 ]]; then
+            tail -2 download.log | head -1
+          else
+            tail download.log
+          fi
+          rm -f download.log
           if sha256sum -c sdc-debian.xz.SHA256; then
             rm sdc-debian.xz.SHA256
             xz --decompress --verbose sdc-debian.xz && mv sdc-debian sdc
             echo "" >> ${SUMMARY_FILE}
             echo "| STATUS | TOOL |" >> ${SUMMARY_FILE}
             echo "| ------ | ---- |" >> ${SUMMARY_FILE}
-            if ./run-ski-test.bash ${SKI_BOOTLOADER} ${HP_SIM_KERNEL}; then
+            if ./run-ski-test.bash ${SKI_BOOTLOADER} ${HP_SIM_KERNEL} | awk NF; then
               echo "| :white_check_mark: | run-ski-test.bash |" >> ${SUMMARY_FILE}
               true
             else

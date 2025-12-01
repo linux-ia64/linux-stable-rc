@@ -11,7 +11,7 @@ bski \
 	${_hpSimLinuxKernel} \
 	root=/dev/sda \
 	simscsi=./sd \
-	simeth=enp3s0f0 \
+	simeth=tap0 \
 	init=/root/bin/ski_test.bash \
 	PATH=${_skiPathVar} \
 	rw \
