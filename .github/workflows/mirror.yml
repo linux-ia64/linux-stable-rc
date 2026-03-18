@@ -243,7 +243,7 @@ jobs:
           fi
           # build hp sim kernel ################################################
           cd "${TOOLS_DIR}"
-          BUILD_COMMAND="time ./tools/make-kernel.bash ./config/linux-for-hp-ski-v6 ia64 ${BUILD_DIR} ski-gha tar-pkg"
+          BUILD_COMMAND="time ./tools/make-kernel.bash ./config/linux-for-hp-ski-v7 ia64 ${BUILD_DIR} ski-gha tar-pkg"
           if ${BUILD_COMMAND}; then
             mkdir build-artifacts-ski && mv $( cat ${BUILD_DIR}/LINUX_BUILD_LOG ) $( cat ${BUILD_DIR}/LINUX_TARBALL ) build-artifacts-ski/
             pushd build-artifacts-ski/
