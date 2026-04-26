@@ -1,0 +1,41 @@
+From ed5463a5fdc61ee356a58ff60c4b92cfe1c37583 Mon Sep 17 00:00:00 2001
+From: Johnny Mnemonic <jm@machine-hall.org>
+Date: Sat, 14 Feb 2026 21:17:35 +0100
+Subject: [PATCH 101/118] Silence set-but-not-used warnings for
+ clear_user_pages()
+
+clear_user_pages() is defined so that in the first case it uses a
+defined clear_user_page(). But the ia64 version as defined in
+include/asm/page.h does not use the vaddr parameter, although
+having an interface which includes it. This leads to a barrage of
+warnings during build like the following when
+-Wunused-but-set-parameter= is non-zero during compilation:
+```
+./include/linux/highmem.h: In function 'clear_user_pages':
+./include/linux/highmem.h:234:63: warning: parameter 'vaddr' set but not used [-Wunused-but-set-parameter=]
+  234 | static inline void clear_user_pages(void *addr, unsigned long vaddr,
+      |                                                 ~~~~~~~~~~~~~~^~~~~
+```
+
+Silence these with [[maybe_unused]] attribute as per
+https://en.cppreference.com/w/c/language/attributes/maybe_unused.html
+---
+ include/linux/highmem.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/highmem.h b/include/linux/highmem.h
+index af03db851a1d..0ffc719446a8 100644
+--- a/include/linux/highmem.h
++++ b/include/linux/highmem.h
+@@ -231,7 +231,7 @@ static inline void clear_user_page(void *addr, unsigned long vaddr, struct page
+  * If the architecture provides a clear_user_page(), use that;
+  * otherwise, we can safely use clear_pages().
+  */
+-static inline void clear_user_pages(void *addr, unsigned long vaddr,
++static inline void clear_user_pages(void *addr, [[maybe_unused]] unsigned long vaddr,
+ 		struct page *page, unsigned int npages)
+ {
+ 
+-- 
+2.25.1
+

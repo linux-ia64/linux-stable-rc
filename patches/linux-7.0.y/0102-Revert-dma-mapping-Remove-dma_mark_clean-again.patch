@@ -1,0 +1,82 @@
+From 41760f370ad21e4c324cdd92d8c904793545990a Mon Sep 17 00:00:00 2001
+From: Tomas Glozar <tglozar@gmail.com>
+Date: Mon, 23 Feb 2026 14:12:14 +0100
+Subject: [PATCH 102/118] Revert "dma-mapping: Remove dma_mark_clean (again)"
+
+This reverts commit 8a840ab0567ff2b7d382694ba24a58a893d2c7af.
+
+Signed-off-by: Tomas Glozar <tglozar@gmail.com>
+---
+ include/linux/dma-map-ops.h | 8 ++++++++
+ kernel/dma/Kconfig          | 6 ++++++
+ kernel/dma/direct.c         | 3 +++
+ kernel/dma/direct.h         | 3 +++
+ 4 files changed, 20 insertions(+)
+
+diff --git a/include/linux/dma-map-ops.h b/include/linux/dma-map-ops.h
+index 60b63756df82..8eff2f53fd86 100644
+--- a/include/linux/dma-map-ops.h
++++ b/include/linux/dma-map-ops.h
+@@ -377,6 +377,14 @@ static inline void arch_dma_prep_coherent(struct page *page, size_t size)
+ }
+ #endif /* CONFIG_ARCH_HAS_DMA_PREP_COHERENT */
+ 
++#ifdef CONFIG_ARCH_HAS_DMA_MARK_CLEAN
++void arch_dma_mark_clean(phys_addr_t paddr, size_t size);
++#else
++static inline void arch_dma_mark_clean(phys_addr_t paddr, size_t size)
++{
++}
++#endif /* ARCH_HAS_DMA_MARK_CLEAN */
++
+ void *arch_dma_set_uncached(void *addr, size_t size);
+ void arch_dma_clear_uncached(void *addr, size_t size);
+ 
+diff --git a/kernel/dma/Kconfig b/kernel/dma/Kconfig
+index 159900736f25..31cfdb6b4bc3 100644
+--- a/kernel/dma/Kconfig
++++ b/kernel/dma/Kconfig
+@@ -47,6 +47,12 @@ config ARCH_HAS_DMA_SET_MASK
+ config ARCH_HAS_DMA_WRITE_COMBINE
+ 	bool
+ 
++#
++# Select if the architectures provides the arch_dma_mark_clean hook
++#
++config ARCH_HAS_DMA_MARK_CLEAN
++	bool
++
+ config DMA_DECLARE_COHERENT
+ 	bool
+ 
+diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
+index 8f43a930716d..fa5aa496e46e 100644
+--- a/kernel/dma/direct.c
++++ b/kernel/dma/direct.c
+@@ -425,6 +425,9 @@ void dma_direct_sync_sg_for_cpu(struct device *dev,
+ 			arch_sync_dma_for_cpu(paddr, sg->length, dir);
+ 
+ 		swiotlb_sync_single_for_cpu(dev, paddr, sg->length, dir);
++
++		if (dir == DMA_FROM_DEVICE)
++			arch_dma_mark_clean(paddr, sg->length);
+ 	}
+ 
+ 	if (!dev_is_dma_coherent(dev))
+diff --git a/kernel/dma/direct.h b/kernel/dma/direct.h
+index 6184ff303f08..5c1f4625e889 100644
+--- a/kernel/dma/direct.h
++++ b/kernel/dma/direct.h
+@@ -75,6 +75,9 @@ static inline void dma_direct_sync_single_for_cpu(struct device *dev,
+ 	}
+ 
+ 	swiotlb_sync_single_for_cpu(dev, paddr, size, dir);
++
++	if (dir == DMA_FROM_DEVICE)
++		arch_dma_mark_clean(paddr, size);
+ }
+ 
+ static inline dma_addr_t dma_direct_map_phys(struct device *dev,
+-- 
+2.25.1
+

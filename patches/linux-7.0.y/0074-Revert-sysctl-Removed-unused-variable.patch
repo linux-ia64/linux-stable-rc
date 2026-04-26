@@ -1,0 +1,36 @@
+From 01518b092ba273369a152a06ec1b4249207c3190 Mon Sep 17 00:00:00 2001
+From: Johnny Mnemonic <jm@machine-hall.org>
+Date: Wed, 30 Jul 2025 16:30:26 +0200
+Subject: [PATCH 074/118] Revert "sysctl: Removed unused variable"
+
+ia64 still uses this, so we keep that.
+
+Otherwise we get:
+```
+kernel/sysctl.c:1504:36: error: 'unaligned_dump_stack' undeclared here (not in a function); did you mean 'trace_dump_stack'?
+ 1504 |                 .data           = &unaligned_dump_stack,
+      |                                    ^~~~~~~~~~~~~~~~~~~~
+      |                                    trace_dump_stack
+```
+...during build.
+
+This reverts commit 39dac316f09ae5a0930878d2cae8aea113648b5a.
+---
+ include/linux/sysctl.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index 2886fbceb5d6..70db52b3c5b3 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -268,6 +268,7 @@ void do_sysctl_args(void);
+ bool sysctl_is_alias(char *param);
+ 
+ extern int unaligned_enabled;
++extern int unaligned_dump_stack;
+ extern int no_unaligned_warning;
+ 
+ #else /* CONFIG_SYSCTL */
+-- 
+2.25.1
+
