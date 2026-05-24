@@ -1022,6 +1022,8 @@ svcauth_gss_unwrap_priv(struct svc_rqst *rqstp, struct xdr_buf *buf, u32 seq,
 	remaining_len = total_buf_len(buf);
 	if (len > remaining_len)
 		goto unwrap_failed;
+	if (len <= GSS_KRB5_TOK_HDR_LEN)
+		goto unwrap_failed;
 	pad = remaining_len - len;
 	buf->len -= pad;
 	fix_priv_head(buf, pad);
