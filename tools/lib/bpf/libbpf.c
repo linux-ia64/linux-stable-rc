@@ -4418,7 +4418,7 @@ bpf_object__probe_loading(struct bpf_object *obj)
 	};
 	int ret, insn_cnt = ARRAY_SIZE(insns);
 
-	if (obj->gen_loader)
+	if (obj->gen_loader || obj->token_fd)
 		return 0;
 
 	ret = bump_rlimit_memlock();
