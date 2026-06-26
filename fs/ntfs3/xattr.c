@@ -977,8 +977,10 @@ set_new_fa:
 	err = ntfs_set_ea(inode, name, name_len, value, size, flags, 0);
 
 out:
-	inode->i_ctime = current_time(inode);
-	mark_inode_dirty(inode);
+	if (!err) {
+		inode->i_ctime = current_time(inode);
+		mark_inode_dirty(inode);
+	}
 
 	return err;
 }
