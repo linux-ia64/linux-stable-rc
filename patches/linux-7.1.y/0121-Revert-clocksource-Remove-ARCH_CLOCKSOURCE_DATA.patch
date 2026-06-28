@@ -1,0 +1,59 @@
+From 53fc7185fe88b6b267c56306ff526a5309988451 Mon Sep 17 00:00:00 2001
+From: Johnny Mnemonic <jm@machine-hall.org>
+Date: Wed, 15 Apr 2026 14:39:11 +0200
+Subject: [PATCH 121/126] Revert "clocksource: Remove ARCH_CLOCKSOURCE_DATA"
+
+arch/ia64/Kconfig selects ARCH_CLOCKSOURCE_DATA so let's keep it for now.
+At least until it's clear if we can do the same for ia64 as was done for
+sparc64 with "sparc64: vdso: Switch to the generic vDSO library" ([1]).
+
+[1]: https://github.com/torvalds/linux/commit/7c5fc16c7a5699e7706d7847e58a75560251946e
+
+This reverts commit c453b9abb4f422461c1493ef74d63af0961a2d30.
+---
+ include/linux/clocksource.h | 6 +++++-
+ kernel/time/Kconfig         | 4 ++++
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/clocksource.h b/include/linux/clocksource.h
+index 7c38190b10bf..ccf5c0ca26b7 100644
+--- a/include/linux/clocksource.h
++++ b/include/linux/clocksource.h
+@@ -25,7 +25,8 @@ struct clocksource_base;
+ struct clocksource;
+ struct module;
+ 
+-#if defined(CONFIG_GENERIC_GETTIMEOFDAY)
++#if defined(CONFIG_ARCH_CLOCKSOURCE_DATA) || \
++    defined(CONFIG_GENERIC_GETTIMEOFDAY)
+ #include <asm/clocksource.h>
+ #endif
+ 
+@@ -102,6 +103,9 @@ struct clocksource {
+ 	u32			shift;
+ 	u64			max_idle_ns;
+ 	u32			maxadj;
++#ifdef CONFIG_ARCH_CLOCKSOURCE_DATA
++	struct arch_clocksource_data archdata;
++#endif
+ 	u64			max_cycles;
+ 	u64			max_raw_delta;
+ 	const char		*name;
+diff --git a/kernel/time/Kconfig b/kernel/time/Kconfig
+index 02aac7c5aa76..6a11964377e6 100644
+--- a/kernel/time/Kconfig
++++ b/kernel/time/Kconfig
+@@ -9,6 +9,10 @@
+ config CLOCKSOURCE_WATCHDOG
+ 	bool
+ 
++# Architecture has extra clocksource data
++config ARCH_CLOCKSOURCE_DATA
++	bool
++
+ # Architecture has extra clocksource init called from registration
+ config ARCH_CLOCKSOURCE_INIT
+ 	bool
+-- 
+2.25.1
+
