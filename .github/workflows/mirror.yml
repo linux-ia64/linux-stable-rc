@@ -94,7 +94,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: johnny-mnemonic/ski
-          ref: update-processor
+          ref: master
           path: ski
 
       - name: prepare_step
