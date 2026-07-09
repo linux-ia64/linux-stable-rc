@@ -24,9 +24,7 @@ bski \
 
 _skiPID=$!
 
-sleep 0.25
-
-tail -f -n +1 ${_skiLog} &
+tail --pid=${_skiPID} --retry -f -n +1 ${_skiLog} &
 
 _tailPID=$!
 
@@ -41,8 +39,8 @@ set -x
 
 sleep 5
 
-kill ${_tailPID}
 kill ${_skiPID}
+kill ${_tailPID} || true
 
 if grep 'INFO: Ski test succeeded.' ${_skiLog} &>/dev/null; then
 
