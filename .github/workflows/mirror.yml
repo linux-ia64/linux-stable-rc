@@ -49,6 +49,8 @@ jobs:
             fi
             popd
             pwd
+            # remove worktree again to save disk space
+            git worktree remove -f ../${branch}
           done
           if [[ ! -s ${JSON_DATA_FILE} ]]; then
             # insert dummy element #############################################
