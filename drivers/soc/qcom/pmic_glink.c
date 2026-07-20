@@ -230,7 +230,8 @@ static int pmic_glink_rpmsg_probe(struct rpmsg_device *rpdev)
 
 	mutex_lock(&__pmic_glink_lock);
 	if (!pg) {
-		ret = dev_err_probe(&rpdev->dev, -ENODEV, "no pmic_glink device to attach to\n");
+		ret = dev_err_probe(&rpdev->dev, -EPROBE_DEFER,
+				    "no pmic_glink device to attach to\n");
 		goto out_unlock;
 	}
 
