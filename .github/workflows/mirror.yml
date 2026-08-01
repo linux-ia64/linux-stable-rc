@@ -194,11 +194,11 @@ jobs:
             echo "BUILD_ARTIFACTS=${PWD}/build-artifacts" >> $GITHUB_ENV
             echo "KERNEL_VERSION=${KERNEL_VERSION}" >> $GITHUB_ENV
             ####################################################################
-            echo "| :white_check_mark: | ${BRANCH} | ${KERNEL_VERSION} | regular | ${USED_PATCHES} | ${CROSS_COMPILER_AND_VERSION} |" >> ${SUMMARY_FILE}
+            echo "| :white_check_mark: | ${BRANCH} | ${KERNEL_VERSION} | regular | ${USED_PATCHES} | ${CROSS_COMPILER_AND_VERSION} | @@DOWNLOAD-1 |" >> ${SUMMARY_FILE}
             echo "${KERNEL_VERSION}" > ${GITHUB_WORKSPACE}/${BRANCH}-last-kernel-version
             true
           else
-            echo "| :x: | ${BRANCH} | ${KERNEL_VERSION} | regular | ${USED_PATCHES} |${CROSS_COMPILER_AND_VERSION} |" >> ${SUMMARY_FILE}
+            echo "| :x: | ${BRANCH} | ${KERNEL_VERSION} | regular | ${USED_PATCHES} |${CROSS_COMPILER_AND_VERSION} | |" >> ${SUMMARY_FILE}
             true
           fi
 
@@ -210,9 +210,9 @@ jobs:
           compression-level: 0
           retention-days: 4
 
-      - name: Output artifact ID
+      - name: Output artifact ID 1
         run: |
-          echo '||||||| [build artifacts](${{ steps.artifact-upload-step.outputs.artifact-url }}) |' >> ${SUMMARY_FILE}
+          sed -e "s/@@DOWNLOAD-1/[build artifacts](${{ steps.artifact-upload-step-1.outputs.artifact-url }})/" -i ${SUMMARY_FILE}
 
 #      - uses: actions/upload-artifact@v4
 #        with:
@@ -255,10 +255,10 @@ jobs:
             echo "BUILD_ARTIFACTS_SKI=${PWD}/build-artifacts-ski" >> $GITHUB_ENV
             echo "KERNEL_VERSION_SKI=${KERNEL_VERSION}-ski" >> $GITHUB_ENV
             ####################################################################
-            echo "| :white_check_mark: | ${BRANCH} | ${KERNEL_VERSION} | hp_sim | ${USED_PATCHES} | ${CROSS_COMPILER_AND_VERSION} |" >> ${SUMMARY_FILE}
+            echo "| :white_check_mark: | ${BRANCH} | ${KERNEL_VERSION_SKI} | Ski/hp_sim | ${USED_PATCHES} | ${CROSS_COMPILER_AND_VERSION} | @@DOWNLOAD-1 |" >> ${SUMMARY_FILE}
             true
           else
-            echo "| :x: | ${BRANCH} | ${KERNEL_VERSION} | hp_sim | ${USED_PATCHES} | ${CROSS_COMPILER_AND_VERSION} |" >> ${SUMMARY_FILE}
+            echo "| :x: | ${BRANCH} | ${KERNEL_VERSION_SKI} | Ski/hp_sim | ${USED_PATCHES} | ${CROSS_COMPILER_AND_VERSION} |" >> ${SUMMARY_FILE}
             echo "EXIT_EARLY=1" >> $GITHUB_ENV
             true
           fi
@@ -273,6 +273,10 @@ jobs:
           path: ${{ env.BUILD_ARTIFACTS_SKI }}/
           compression-level: 0
           retention-days: 4
+
+      - name: Output artifact ID 2
+        run: |
+          sed -e "s/@@DOWNLOAD-2/[build artifacts](${{ steps.artifact-upload-step-2.outputs.artifact-url }})/" -i ${SUMMARY_FILE}
 
       - name: ski_build_step
         run: |
@@ -352,6 +356,58 @@ jobs:
           else
             echo "ERROR: Wrong SHA256 hash for ia64 root FS. Refuse to continue." >> ${SUMMARY_FILE}
           fi
+
+      - name: qemu_kernel_build_step
+        run: |
+          USED_PATCHES="see [__mirror/patches/${BRANCH}/](https://github.com/johnny-mnemonic/linux-stable-rc/tree/__mirror/patches/${BRANCH}/)"
+          # apply any standard patches #########################################
+          PATH=${MODPATH}
+          cd ${BUILD_DIR}
+          KERNEL_VERSION_QEMU=$( git log --oneline | head -n1 | grep -o "Linux\ .*" )
+          make mrproper
+          HUNK_FAILED=0
+          if [[ -e ${TOOLS_DIR}/patches/${BRANCH}/ ]]; then
+            for patch in ${TOOLS_DIR}/patches/${BRANCH}/*patch; do
+              patch -p1 < ${patch} || HUNK_FAILED=1
+            done
+            if [[ $HUNK_FAILED -eq 1 ]]; then
+              false
+            fi
+          else
+            USED_PATCHES="no extra patches needed"
+          fi
+          # build ##############################################################
+          cd "${TOOLS_DIR}"
+          echo "| STATUS | BRANCH | VERSION | TYPE | USED PATCHES | COMPILER | DOWNLOAD |" >> ${SUMMARY_FILE}
+          echo "| ------ | ------ | ------- | ---- | ------------ | -------- | -------- |" >> ${SUMMARY_FILE}
+          BUILD_COMMAND="time ./tools/make-kernel.bash ./config/linux-for-qemu-system-ia64 ia64 ${BUILD_DIR} qemu-gha tar-pkg"
+          if ${BUILD_COMMAND}; then
+            mkdir build-artifacts && mv $( cat ${BUILD_DIR}/LINUX_BUILD_LOG ) $( cat ${BUILD_DIR}/LINUX_TARBALL ) build-artifacts/
+            pushd build-artifacts/
+            sha256sum * > SHA256
+            popd
+            # exports ##########################################################
+            echo "BUILD_ARTIFACTS_QEMU=${PWD}/build-artifacts-qemu" >> $GITHUB_ENV
+            echo "KERNEL_VERSION_QEMU=${KERNEL_VERSION_QEMU}" >> $GITHUB_ENV
+            ####################################################################
+            echo "| :white_check_mark: | ${BRANCH} | ${KERNEL_VERSION_QEMU} | QEMU | ${USED_PATCHES} | ${CROSS_COMPILER_AND_VERSION} | @@DOWNLOAD-3 |" >> ${SUMMARY_FILE}
+            true
+          else
+            echo "| :x: | ${BRANCH} | ${KERNEL_VERSION_QEMU} | QEMU | ${USED_PATCHES} |${CROSS_COMPILER_AND_VERSION} | |" >> ${SUMMARY_FILE}
+            true
+          fi
+
+      - uses: actions/upload-artifact@v4
+        id: artifact-upload-step-3
+        with:
+          name: ${{ env.KERNEL_VERSION_QEMU }}
+          path: ${{ env.BUILD_ARTIFACTS_QEMU }}/
+          compression-level: 0
+          retention-days: 4
+
+      - name: Output artifact ID 3
+        run: |
+          sed -e "s/@@DOWNLOAD-3/[build artifacts](${{ steps.artifact-upload-step-3.outputs.artifact-url }})/" -i ${SUMMARY_FILE}
 
       - name: steps_summary
         run: |
