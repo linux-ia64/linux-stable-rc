@@ -1,0 +1,22 @@
+diff --git a/drivers/cpufreq/ia64-acpi-cpufreq.c b/drivers/cpufreq/ia64-acpi-cpufreq.c
+index c6bdc455517f85..f692729068f5dd 100644
+--- a/drivers/cpufreq/ia64-acpi-cpufreq.c
++++ b/drivers/cpufreq/ia64-acpi-cpufreq.c
+@@ -302,7 +302,7 @@ acpi_cpufreq_cpu_init (
+ }
+ 
+ 
+-static void
++static int
+ acpi_cpufreq_cpu_exit (
+ 	struct cpufreq_policy   *policy)
+ {
+@@ -316,6 +316,8 @@ acpi_cpufreq_cpu_exit (
+ 		kfree(policy->freq_table);
+ 		kfree(data);
+ 	}
++
++	return (0);
+ }
+ 
+ 
