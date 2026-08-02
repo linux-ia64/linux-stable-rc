@@ -206,7 +206,8 @@ struct nfs4_cb_fattr {
  * If the server attempts to recall a delegation and the client doesn't do so
  * before a timeout, the server may also revoke the delegation. In that case,
  * the object will either be destroyed (v4.0) or moved to a per-client list of
- * revoked delegations (v4.1+).
+ * revoked delegations (v4.1+). A v4.1+ client that rejects the recall holds
+ * no record of the delegation, so the object is destroyed rather than listed.
  *
  * This object is a superset of the nfs4_stid.
  */
@@ -222,11 +223,21 @@ struct nfs4_delegation {
 	int			dl_retries;
 	struct nfsd4_callback	dl_recall;
 	bool			dl_recalled;
+	bool			dl_recall_rejected;
 	bool			dl_written;
 	bool			dl_setattr;
 
 	/* for CB_GETATTR */
 	struct nfs4_cb_fattr    dl_cb_fattr;
+
+	/* Forward-channel slot that carried the granting request */
+	struct {
+		u32			sessionid_seq;
+		u32			slotid;
+		u32			seqid;
+		bool			valid;
+		bool			retired_at_send;
+	} dl_recall_grant;
 
 	/* For delegated timestamps */
 	struct timespec64	dl_atime;
