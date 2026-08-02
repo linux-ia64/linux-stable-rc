@@ -106,6 +106,8 @@ jobs:
           TOOLS_DIR="$( pwd )/__mirror"
           HP_SIM_DIR="$( pwd )/hp-sim-for-linux"
           SKI_DIR="$( pwd )/ski"
+          # not existing yet, as downloaded later
+          QEMU_DIR="$( pwd)/qemu-system-ia64"
           BRANCH=${{ matrix.branch }}
           SUMMARY_FILE=${BASE_DIR}/summary.md
           touch ${SUMMARY_FILE}
@@ -121,6 +123,20 @@ jobs:
           echo "****"
           lspci
           echo "****"
+          # check support libs for qemu-system-ia64
+          ls /lib/x86_64-linux-gnu/libgio-2.0.so.0 || echo "^ missing"
+          ls /lib/x86_64-linux-gnu/libgobject-2.0.so.0 || echo "^ missing"
+          ls /lib/x86_64-linux-gnu/libglib-2.0.so.0 || echo "^ missing"
+          ls /lib/x86_64-linux-gnu/libz.so.1 || echo "^ missing"
+          ls /lib/x86_64-linux-gnu/libgmodule-2.0.so.0 || echo "^ missing"
+          ls /lib/x86_64-linux-gnu/libm.so.6 || echo "^ missing"
+          ls /lib/x86_64-linux-gnu/libc.so.6 || echo "^ missing"
+          ls /lib/x86_64-linux-gnu/libmount.so.1 || echo "^ missing"
+          ls /lib/x86_64-linux-gnu/libselinux.so.1 || echo "^ missing"
+          ls /lib/x86_64-linux-gnu/libffi.so.8 || echo "^ missing"
+          ls /lib/x86_64-linux-gnu/libpcre2-8.so.0 || echo "^ missing"
+          ls /lib/x86_64-linux-gnu/libblkid.so.1 || echo "^ missing"
+          echo ***
           # prepare tools ######################################################
           cd ${TOOLS_DIR}
           CROSS_COMPILER_URL=$( cat ./config/compiler-url )
@@ -144,6 +160,7 @@ jobs:
           echo "TOOLS_DIR=${TOOLS_DIR}" >> $GITHUB_ENV
           echo "HP_SIM_DIR=${HP_SIM_DIR}" >> $GITHUB_ENV
           echo "SKI_DIR=${SKI_DIR}" >> $GITHUB_ENV
+          echo "QEMU_DIR=${QEMU_DIR}" >> $GITHUB_ENV
           echo "BRANCH=${BRANCH}" >> $GITHUB_ENV
           echo "MODPATH=${PATH}" >> $GITHUB_ENV
           echo "CROSS_COMPILER_AND_VERSION=${CROSS_COMPILER_AND_VERSION}" >> $GITHUB_ENV
@@ -232,8 +249,6 @@ jobs:
           USED_PATCHES="no extra patches needed"
           # build ##############################################################
           cd "${TOOLS_DIR}"
-          echo "| STATUS | BRANCH | VERSION | TYPE | USED PATCHES | COMPILER | DOWNLOAD |" >> ${SUMMARY_FILE}
-          echo "| ------ | ------ | ------- | ---- | ------------ | -------- | -------- |" >> ${SUMMARY_FILE}
           BUILD_COMMAND="time ./tools/make-kernel.bash ./config/linux-for-qemu-system-ia64 ia64 ${BUILD_DIR} qemu-gha tar-pkg"
           if ${BUILD_COMMAND}; then
             mkdir build-artifacts && mv $( cat ${BUILD_DIR}/LINUX_BUILD_LOG ) $( cat ${BUILD_DIR}/LINUX_TARBALL ) build-artifacts/
@@ -262,6 +277,59 @@ jobs:
       - name: Output artifact ID 3
         run: |
           sed -e "s|@@DOWNLOAD-3|[build artifacts](${{ steps.artifact-upload-step-3.outputs.artifact-url }})|" -i ${SUMMARY_FILE}
+
+      - name: qemu_test_step
+        run: |
+          if [[ ${EXIT_EARLY} -eq 1 ]]; then
+            exit 0
+          fi
+          # get pre-made qemu-system-ia64 ######################################
+          QEMU_PATH=${QEMU_DIR}
+          QEMU_URL=$( cat ${TOOLS_DIR}/config/qemu-url )
+          wget "${QEMU_URL}" -o download.log
+          if [[ $? -eq 0 ]]; then
+            tail -2 download.log | head -1
+          else
+            tail download.log
+          fi
+          rm -f download.log
+          QEMU_TARBALL=$( basename ${QEMU_URL} )
+          cp ${TOOLS_DIR}/config/${QEMU_TARBALL}.SHA256 .
+          if sha256sum -c ${QEMU_TARBALL}.SHA256; then
+            tar -xf ${QEMU_TARBALL}
+          else
+            echo "ERROR: Wrong SHA256 hash for ${QEMU_TARBALL}. Refuse to continue." >> ${SUMMARY_FILE}
+          fi
+          PATH=$PATH:${QEMU_PATH}
+          # get QEMU disk image ################################################
+          QEMU_TEST_DIR="${BASE_DIR}/qemu-test"
+          mkdir ${QEMU_TEST_DIR} && cd ${QEMU_TEST_DIR}
+          QEMU_DISK_IMAGE_URL=$( cat ${TOOLS_DIR}/config/qemu-disk-image-url )
+          wget "${QEMU_DISK_IMAGE_URL}" -o download.log
+          if [[ $? -eq 0 ]]; then
+            tail -2 download.log | head -1
+          else
+            tail download.log
+          fi
+          rm -f download.log
+          QEMU_DISK_IMAGE=$( basename ${QEMU_DISK_IMAGE_URL} )
+          cp ${TOOLS_DIR}/config/${QEMU_DISK_IMAGE}.SHA256 .
+          if sha256sum -c ${QEMU_DISK_IMAGE}.SHA256; then
+            xz --decompress ${QEMU_DISK_IMAGE}
+            QEMU_DISK_IMAGE=${QEMU_DISK_IMAGE%.xz}
+            echo "" >> ${SUMMARY_FILE}
+            echo "| STATUS | TOOL |" >> ${SUMMARY_FILE}
+            echo "| ------ | ---- |" >> ${SUMMARY_FILE}
+            if qemu-system-ia64 -machine ia64-vpc -bios ${QEMU_DIR}/roms/ia64-firmware/ia64-firmware.bin -drive file=./${QEMU_DISK_IMAGE},media=disk,format=raw,readonly=off -chardev stdio,id=char0,logfile=qemu-system-ia64-test.log,signal=off -serial chardev:char0 -smp 4 -m 4G -accel tcg,thread=multi -nic none -display none; then
+              echo "| :white_check_mark: | qemu-system-ia64 |" >> ${SUMMARY_FILE}
+              true
+            else
+              echo "| :x: | qemu-system-ia64 |" >> ${SUMMARY_FILE}
+              true
+            fi
+          else
+            echo "ERROR: Wrong SHA256 hash for ia64 root FS. Refuse to continue." >> ${SUMMARY_FILE}
+          fi
 
       - name: hp_sim_build_step
         run: |
@@ -389,10 +457,10 @@ jobs:
             echo "| STATUS | TOOL |" >> ${SUMMARY_FILE}
             echo "| ------ | ---- |" >> ${SUMMARY_FILE}
             if ./run-ski-test.bash ${SKI_BOOTLOADER} ${HP_SIM_KERNEL} | awk NF; then
-              echo "| :white_check_mark: | run-ski-test.bash |" >> ${SUMMARY_FILE}
+              echo "| :white_check_mark: | ski |" >> ${SUMMARY_FILE}
               true
             else
-              echo "| :x: | run-ski-test.bash |" >> ${SUMMARY_FILE}
+              echo "| :x: | ski |" >> ${SUMMARY_FILE}
               true
             fi
           else
