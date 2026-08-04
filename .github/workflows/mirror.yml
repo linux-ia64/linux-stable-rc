@@ -320,7 +320,7 @@ jobs:
             echo "" >> ${SUMMARY_FILE}
             echo "| STATUS | TOOL |" >> ${SUMMARY_FILE}
             echo "| ------ | ---- |" >> ${SUMMARY_FILE}
-            if qemu-system-ia64 -machine ia64-vpc -bios ${QEMU_DIR}/roms/ia64-firmware/ia64-firmware.bin -drive file=./${QEMU_DISK_IMAGE},media=disk,format=raw,readonly=off -chardev stdio,id=char0,logfile=qemu-system-ia64-test.log,signal=off -serial chardev:char0 -smp 4 -m 4G -accel tcg,thread=multi -nic none -display none; then
+            if qemu-system-ia64 -machine ia64-vpc -bios ${QEMU_DIR}/roms/ia64-firmware/ia64-firmware.bin -drive file=./${QEMU_DISK_IMAGE},media=disk,format=raw,readonly=off -chardev stdio,id=char0,logfile=qemu-system-ia64-test.log,signal=off -serial chardev:char0 -smp 4 -m 4G -accel tcg,thread=multi -nic none -vga none -display none -nographic; then
               echo "| :white_check_mark: | qemu-system-ia64 |" >> ${SUMMARY_FILE}
               true
             else
