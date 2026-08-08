@@ -2,6 +2,7 @@
 /* Copyright(c) 2022 Intel Corporation. All rights reserved. */
 #include <linux/io-64-nonatomic-hi-lo.h>
 #include <linux/seq_file.h>
+#include <asm/unaligned.h>
 #include <linux/device.h>
 #include <linux/delay.h>
 
@@ -715,15 +716,12 @@ static int init_hdm_decoder(struct cxl_port *port, struct cxl_decoder *cxld,
 			    u64 *dpa_base)
 {
 	struct cxl_endpoint_decoder *cxled = NULL;
+	u8 target_id[CXL_HDM_DECODER0_TL_TARGETS];
 	u64 size, base, skip, dpa_size;
 	bool committed;
 	u32 remainder;
 	int i, rc;
 	u32 ctrl;
-	union {
-		u64 value;
-		unsigned char target_id[8];
-	} target_list;
 
 	if (is_endpoint_decoder(&cxld->dev))
 		cxled = to_cxl_endpoint_decoder(&cxld->dev);
@@ -803,10 +801,12 @@ static int init_hdm_decoder(struct cxl_port *port, struct cxl_decoder *cxld,
 			return -ENXIO;
 		}
 
-		target_list.value =
-			ioread64_hi_lo(hdm + CXL_HDM_DECODER0_TL_LOW(which));
+		put_unaligned_le32(readl(hdm + CXL_HDM_DECODER0_TL_LOW(which)),
+				   &target_id[0]);
+		put_unaligned_le32(readl(hdm + CXL_HDM_DECODER0_TL_HIGH(which)),
+				   &target_id[4]);
 		for (i = 0; i < cxld->interleave_ways; i++)
-			target_map[i] = target_list.target_id[i];
+			target_map[i] = target_id[i];
 
 		return 0;
 	}
