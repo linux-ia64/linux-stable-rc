@@ -8,6 +8,7 @@
 #include <dt-bindings/clock/qcom,rpmcc.h>
 #include <dt-bindings/reset/qcom,gcc-msm8974.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/reset/qcom,mmcc-msm8974.h>
 
 / {
 	#address-cells = <1>;
@@ -1507,6 +1508,8 @@
 
 			interrupt-controller;
 			#interrupt-cells = <1>;
+
+			resets = <&mmcc MDSS_RESET>;
 
 			status = "disabled";
 
