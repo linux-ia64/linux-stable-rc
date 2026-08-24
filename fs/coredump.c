@@ -615,6 +615,9 @@ void do_coredump(const kernel_siginfo_t *siginfo)
 		.cpu = raw_smp_processor_id(),
 	};
 
+	/* Task work must not cut the dump short, see signal_pending(). */
+	guard(no_notify_signal)();
+
 	audit_core_dumps(siginfo->si_signo);
 
 	binfmt = mm->binfmt;
