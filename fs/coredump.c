@@ -584,6 +584,7 @@ void do_coredump(const kernel_siginfo_t *siginfo)
 	struct linux_binfmt * binfmt;
 	const struct cred *old_cred;
 	struct cred *cred;
+	unsigned int notify_flags;
 	int retval = 0;
 	int ispipe;
 	size_t *argv = NULL;
@@ -632,6 +633,8 @@ void do_coredump(const kernel_siginfo_t *siginfo)
 	if (retval < 0)
 		goto fail_creds;
 
+	/* Task work must not cut the dump short, see signal_pending(). */
+	notify_flags = no_notify_signal_save();
 	old_cred = override_creds(cred);
 
 	ispipe = format_corename(&cn, &cprm, &argv, &argc);
@@ -848,6 +851,7 @@ fail_unlock:
 	kfree(cn.corename);
 	coredump_finish(core_dumped);
 	revert_creds(old_cred);
+	no_notify_signal_restore(notify_flags);
 fail_creds:
 	put_cred(cred);
 fail:
