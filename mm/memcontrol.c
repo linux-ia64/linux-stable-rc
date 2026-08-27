@@ -631,7 +631,7 @@ static void __mem_cgroup_flush_stats(void)
 	if (!spin_trylock_irqsave(&stats_flush_lock, flag))
 		return;
 
-	flush_next_time = jiffies_64 + 2*FLUSH_TIME;
+	flush_next_time = get_jiffies_64() + 2*FLUSH_TIME;
 	cgroup_rstat_flush_irqsafe(root_mem_cgroup->css.cgroup);
 	atomic_set(&stats_flush_threshold, 0);
 	spin_unlock_irqrestore(&stats_flush_lock, flag);
@@ -645,7 +645,7 @@ void mem_cgroup_flush_stats(void)
 
 void mem_cgroup_flush_stats_delayed(void)
 {
-	if (time_after64(jiffies_64, flush_next_time))
+	if (time_after64(get_jiffies_64(), flush_next_time))
 		mem_cgroup_flush_stats();
 }
 
@@ -4732,7 +4732,7 @@ void mem_cgroup_flush_foreign(struct bdi_writeback *wb)
 {
 	struct mem_cgroup *memcg = mem_cgroup_from_css(wb->memcg_css);
 	unsigned long intv = msecs_to_jiffies(dirty_expire_interval * 10);
-	u64 now = jiffies_64;
+	u64 now = get_jiffies_64();
 	int i;
 
 	for (i = 0; i < MEMCG_CGWB_FRN_CNT; i++) {
