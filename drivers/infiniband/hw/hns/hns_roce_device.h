@@ -653,6 +653,7 @@ struct hns_roce_qp {
 	struct hns_user_mmap_entry *dwqe_mmap_entry;
 	u32			config;
 	enum hns_roce_cong_type	cong_type;
+	bool			ud_sl_set;
 };
 
 struct hns_roce_ib_iboe {
