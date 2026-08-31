@@ -1041,7 +1041,7 @@ static __init int cxl_rch_init(void)
 		if (!pdev)
 			goto err_mem;
 		pdev->dev.parent = &rch->dev;
-		set_dev_node(&pdev->dev, i % 2);
+		set_dev_node(&pdev->dev, numa_map_to_online_node(i % 2));
 
 		rc = platform_device_add(pdev);
 		if (rc) {
@@ -1178,7 +1178,7 @@ static __init int cxl_single_init(void)
 		if (!pdev)
 			goto err_mem;
 		pdev->dev.parent = &dport->dev;
-		set_dev_node(&pdev->dev, i % 2);
+		set_dev_node(&pdev->dev, numa_map_to_online_node(i % 2));
 
 		rc = platform_device_add(pdev);
 		if (rc) {
@@ -1357,7 +1357,7 @@ static __init int cxl_test_init(void)
 		if (!pdev)
 			goto err_mem;
 		pdev->dev.parent = &dport->dev;
-		set_dev_node(&pdev->dev, i % 2);
+		set_dev_node(&pdev->dev, numa_map_to_online_node(i % 2));
 
 		rc = platform_device_add(pdev);
 		if (rc) {
