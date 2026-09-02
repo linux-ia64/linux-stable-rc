@@ -543,6 +543,11 @@ static void ceph_set_page_fscache(struct page *page)
 	set_page_fscache(page);
 }
 
+static void ceph_folio_wait_fscache(struct folio *folio)
+{
+	folio_wait_private_2(folio); /* [DEPRECATED] */
+}
+
 static void ceph_fscache_write_terminated(void *priv, ssize_t error, bool was_async)
 {
 	struct inode *inode = priv;
@@ -561,6 +566,10 @@ static void ceph_fscache_write_to_cache(struct inode *inode, u64 off, u64 len, b
 }
 #else
 static inline void ceph_set_page_fscache(struct page *page)
+{
+}
+
+static inline void ceph_folio_wait_fscache(struct folio *folio)
 {
 }
 
@@ -736,6 +745,9 @@ static int writepage_nounlock(struct page *page, struct writeback_control *wbc)
 	doutc(cl, "%llx.%llx page %p index %lu on %llu~%llu snapc %p seq %lld\n",
 	      ceph_vinop(inode), page, page->index, page_off, wlen, snapc,
 	      snapc->seq);
+
+	/* wait for a cache write left pending by a previously failed attempt */
+	ceph_folio_wait_fscache(folio);
 
 	if (atomic_long_inc_return(&fsc->writeback_count) >
 	    CONGESTION_ON_THRESH(fsc->mount_options->congestion_kb))
