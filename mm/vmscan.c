@@ -4313,7 +4313,6 @@ static bool sort_folio(struct lruvec *lruvec, struct folio *folio, struct scan_c
 		       int tier_idx)
 {
 	bool success;
-	bool dirty, writeback;
 	int gen = folio_lru_gen(folio);
 	int type = folio_is_file_lru(folio);
 	int zone = folio_zonenum(folio);
@@ -4359,8 +4358,9 @@ static bool sort_folio(struct lruvec *lruvec, struct folio *folio, struct scan_c
 		return true;
 	}
 
-	dirty = folio_test_dirty(folio);
-	writeback = folio_test_writeback(folio);
+	bool dirty = folio_test_dirty(folio);
+	bool writeback = folio_test_writeback(folio);
+
 	if (type == LRU_GEN_FILE && dirty) {
 		sc->nr.file_taken += delta;
 		if (!writeback)
@@ -4627,10 +4627,21 @@ retry:
 			type ? LRU_INACTIVE_FILE : LRU_INACTIVE_ANON);
 
 	list_for_each_entry_safe_reverse(folio, next, &list, lru) {
+		DEFINE_MIN_SEQ(lruvec);
+
 		if (!folio_evictable(folio)) {
 			list_del(&folio->lru);
 			folio_putback_lru(folio);
 			continue;
+		}
+
+		/* retry folios that may have missed folio_rotate_reclaimable() */
+		if (!skip_retry && !folio_test_active(folio) && !folio_mapped(folio) &&
+		    !folio_test_dirty(folio) && !folio_test_writeback(folio)) {
+			if (!folio_test_referenced(folio) && !folio_test_locked(folio)) {
+				list_move(&folio->lru, &clean);
+				continue;
+			}
 		}
 
 		if (folio_test_reclaim(folio) &&
@@ -4644,14 +4655,25 @@ retry:
 		if (skip_retry || folio_test_active(folio) || folio_test_referenced(folio) ||
 		    folio_mapped(folio) || folio_test_locked(folio) ||
 		    folio_test_dirty(folio) || folio_test_writeback(folio)) {
+			unsigned long seq = READ_ONCE(lruvec->lrugen.max_seq);
+
 			/* don't add rejected folios to the oldest generation */
-			set_mask_bits(&folio->flags, LRU_REFS_MASK | LRU_REFS_FLAGS,
-				      BIT(PG_active));
+			if (!folio_test_active(folio)) {
+				if ((type == LRU_GEN_ANON && !folio_test_swapcache(folio)) ||
+				    (folio_test_reclaim(folio) &&
+				     (folio_test_dirty(folio) || folio_test_writeback(folio))))
+					seq--;
+				else if (min_seq[type] + MIN_NR_GENS < seq)
+					seq = min_seq[type] + 1;
+				else
+					seq = min_seq[type];
+			}
+
+			if (seq == min_seq[type])
+				set_mask_bits(&folio->flags, LRU_REFS_MASK | LRU_REFS_FLAGS,
+					      BIT(PG_active));
 			continue;
 		}
-
-		/* retry folios that may have missed folio_rotate_reclaimable() */
-		list_move(&folio->lru, &clean);
 	}
 
 	spin_lock_irq(&lruvec->lru_lock);
