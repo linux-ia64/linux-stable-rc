@@ -115,20 +115,26 @@ static __poll_t pidfd_poll(struct file *file, struct poll_table_struct *pts)
 	return poll_flags;
 }
 
+#define pidfs_ioctl_valid(cmd) \
+	(_IOC_TYPE(cmd) == PIDFS_IOCTL_MAGIC && _IOC_DIR(cmd) == _IOC_NONE && \
+	 _IOC_NR(cmd) >= _IOC_NR(PIDFD_GET_CGROUP_NAMESPACE) && \
+	 _IOC_NR(cmd) <= _IOC_NR(PIDFD_GET_UTS_NAMESPACE))
+
 static long pidfd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct task_struct *task __free(put_task) = NULL;
 	struct nsproxy *nsp __free(put_nsproxy) = NULL;
-	struct pid *pid = pidfd_pid(file);
 	struct ns_common *ns_common = NULL;
-	struct pid_namespace *pid_ns;
+
+	if (!pidfs_ioctl_valid(cmd))
+		return -ENOIOCTLCMD;
+
+	task = get_pid_task(pidfd_pid(file), PIDTYPE_PID);
+	if (!task)
+		return -ESRCH;
 
 	if (arg)
 		return -EINVAL;
-
-	task = get_pid_task(pid, PIDTYPE_PID);
-	if (!task)
-		return -ESRCH;
 
 	scoped_guard(task_lock, task) {
 		nsp = task->nsproxy;
@@ -202,13 +208,17 @@ static long pidfd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case PIDFD_GET_PID_NAMESPACE:
-		if (IS_ENABLED(CONFIG_PID_NS)) {
+#ifdef CONFIG_PID_NS
+		{
+			struct pid_namespace *pid_ns;
+
 			rcu_read_lock();
 			pid_ns = task_active_pid_ns(task);
 			if (pid_ns)
 				ns_common = to_ns_common(get_pid_ns(pid_ns));
 			rcu_read_unlock();
 		}
+#endif
 		break;
 	default:
 		return -ENOIOCTLCMD;
