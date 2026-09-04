@@ -10,6 +10,6 @@
 #include <linux/soc/qcom/smd-rpm.h>
 
 bool qcom_icc_rpm_smd_available(void);
-int qcom_icc_rpm_smd_send(int ctx, int rsc_type, int id, u32 val);
+int qcom_icc_rpm_smd_send(int ctx, int rsc_type, int id, u64 val);
 
 #endif
