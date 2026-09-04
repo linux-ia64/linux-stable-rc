@@ -1129,17 +1129,10 @@ static int fuse_ref_folio(struct fuse_copy_state *cs, struct folio *folio,
  * done atomically
  */
 static int fuse_copy_folio(struct fuse_copy_state *cs, struct folio **foliop,
-			   unsigned offset, unsigned count, int zeroing)
+			   unsigned offset, unsigned count)
 {
 	int err;
 	struct folio *folio = *foliop;
-	size_t size;
-
-	if (folio) {
-		size = folio_size(folio);
-		if (zeroing && count < size)
-			folio_zero_range(folio, 0, size);
-	}
 
 	while (count) {
 		if (cs->write && cs->pipebufs && folio) {
@@ -1156,7 +1149,7 @@ static int fuse_copy_folio(struct fuse_copy_state *cs, struct folio **foliop,
 			}
 		} else if (!cs->len) {
 			if (cs->move_folios && folio &&
-			    offset == 0 && count == size) {
+			    offset == 0 && count == folio_size(folio)) {
 				err = fuse_try_move_folio(cs, foliop);
 				if (err <= 0)
 					return err;
@@ -1197,10 +1190,25 @@ static int fuse_copy_folios(struct fuse_copy_state *cs, unsigned nbytes,
 
 	for (i = 0; i < ap->num_folios && (nbytes || zeroing); i++) {
 		int err;
+		struct folio *folio = ap->folios[i];
 		unsigned int offset = ap->descs[i].offset;
-		unsigned int count = min(nbytes, ap->descs[i].length);
+		unsigned int length = ap->descs[i].length;
+		unsigned int count = min(nbytes, length);
 
-		err = fuse_copy_folio(cs, &ap->folios[i], offset, count, zeroing);
+		/*
+		 * The reply may be shorter than what was asked for. The full
+		 * descs[i].length is reported as read, so the tail bytes the
+		 * server did not send are about to be marked uptodate and need
+		 * to be zeroed.
+		 *
+		 * Only [offset, offset + length) can be touched since the
+		 * rest of the folio can hold blocks that are already uptodate
+		 * or dirty, and clearing those would lose data.
+		 */
+		if (folio && zeroing && count < length)
+			folio_zero_range(folio, offset + count, length - count);
+
+		err = fuse_copy_folio(cs, &ap->folios[i], offset, count);
 		if (err)
 			return err;
 
@@ -1835,7 +1843,7 @@ static int fuse_notify_store(struct fuse_conn *fc, unsigned int size,
 		nr_bytes = min_t(unsigned, num, folio_size(folio) - folio_offset);
 		nr_pages = (offset + nr_bytes + PAGE_SIZE - 1) >> PAGE_SHIFT;
 
-		err = fuse_copy_folio(cs, &folio, folio_offset, nr_bytes, 0);
+		err = fuse_copy_folio(cs, &folio, folio_offset, nr_bytes);
 		if (!folio_test_uptodate(folio) && !err && offset == 0 &&
 		    (nr_bytes == folio_size(folio) || file_size == end)) {
 			folio_zero_segment(folio, nr_bytes, folio_size(folio));
