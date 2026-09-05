@@ -232,6 +232,7 @@ void machine__delete(struct machine *machine)
 void machines__init(struct machines *machines)
 {
 	machine__init(&machines->host, "", HOST_KERNEL_ID);
+	machines->host.machines = machines;
 	machines->guests = RB_ROOT_CACHED;
 }
 
