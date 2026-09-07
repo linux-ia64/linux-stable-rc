@@ -434,6 +434,9 @@ mt7996_mcu_ie_countdown(struct mt7996_dev *dev, struct sk_buff *skb)
 	struct header *hdr = (struct header *)data;
 	struct tlv *tlv = (struct tlv *)(data + 4);
 
+	if (skb->len < sizeof(*rxd) + sizeof(*hdr))
+		return;
+
 	if (hdr->band >= ARRAY_SIZE(dev->mt76.phys))
 		return;
 
@@ -442,7 +445,12 @@ mt7996_mcu_ie_countdown(struct mt7996_dev *dev, struct sk_buff *skb)
 
 	tail = skb->data + skb->len;
 	data += sizeof(struct header);
-	while (data + sizeof(struct tlv) < tail && le16_to_cpu(tlv->len)) {
+	while (data + sizeof(*tlv) <= tail) {
+		u16 tag_len = le16_to_cpu(tlv->len);
+
+		if (tag_len < sizeof(*tlv) || data + tag_len > tail)
+			break;
+
 		switch (le16_to_cpu(tlv->tag)) {
 		case UNI_EVENT_IE_COUNTDOWN_CSA:
 			ieee80211_iterate_active_interfaces_atomic(mphy->hw,
@@ -456,7 +464,7 @@ mt7996_mcu_ie_countdown(struct mt7996_dev *dev, struct sk_buff *skb)
 			break;
 		}
 
-		data += le16_to_cpu(tlv->len);
+		data += tag_len;
 		tlv = (struct tlv *)data;
 	}
 }
