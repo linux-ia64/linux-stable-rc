@@ -7952,7 +7952,8 @@ static int bpf_object_load(struct bpf_object *obj, int extra_log_level, const ch
 	}
 
 	if (obj->gen_loader)
-		bpf_gen__init(obj->gen_loader, extra_log_level, obj->nr_programs, obj->nr_maps);
+		bpf_gen__init(obj->gen_loader, obj->log_level | extra_log_level,
+			      obj->nr_programs, obj->nr_maps);
 
 	err = bpf_object__probe_loading(obj);
 	err = err ? : bpf_object__load_vmlinux_btf(obj, false);
