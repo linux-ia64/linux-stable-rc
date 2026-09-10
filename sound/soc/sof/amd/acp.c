@@ -955,6 +955,8 @@ skip_soundwire:
 
 free_ipc_irq:
 	free_irq(sdev->ipc_irq, sdev);
+	if (adata->sdw)
+		amd_sof_sdw_exit(sdev);
 free_smn_dev:
 	pci_dev_put(adata->smn_dev);
 unregister_dev:
