@@ -1100,6 +1100,8 @@ static int omap_des_remove(struct platform_device *pdev)
 			crypto_unregister_skcipher(
 					&dd->pdata->algs_info[i].algs_list[j]);
 
+	crypto_engine_exit(dd->engine);
+
 	tasklet_kill(&dd->done_task);
 	omap_des_dma_cleanup(dd);
 	pm_runtime_disable(dd->dev);
