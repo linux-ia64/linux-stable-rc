@@ -1053,7 +1053,7 @@ static inline struct bpf_subprog_info *subprog_info(struct bpf_verifier_env *env
 }
 
 struct bpf_call_summary {
-	u8 num_params;
+	u8 arg_slot_cnt;
 	bool is_void;
 	bool fastcall;
 };
