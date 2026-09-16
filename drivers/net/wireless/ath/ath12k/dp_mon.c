@@ -4278,7 +4278,6 @@ static void ath12k_dp_rx_mon_dest_process(struct ath12k *ar, int mac_id,
 	struct ath12k_dp *dp = &ar->ab->dp;
 	struct ath12k_base *ab = ar->ab;
 	void *ring_entry, *mon_dst_srng;
-	struct dp_mon_mpdu *tmp_mpdu;
 	LIST_HEAD(rx_desc_used_list);
 	struct hal_srng *srng;
 
@@ -4341,18 +4340,16 @@ static void ath12k_dp_rx_mon_dest_process(struct ath12k *ar, int mac_id,
 		}
 
 		if (head_msdu && tail_msdu) {
-			tmp_mpdu = kzalloc(sizeof(*tmp_mpdu), GFP_ATOMIC);
-			if (!tmp_mpdu)
-				break;
+			struct dp_mon_mpdu tmp_mpdu = {
+				.head = head_msdu,
+				.tail = tail_msdu,
+				.err_bitmap = pmon->err_bitmap,
+				.decap_format = pmon->decap_format,
+			};
 
-			tmp_mpdu->head = head_msdu;
-			tmp_mpdu->tail = tail_msdu;
-			tmp_mpdu->err_bitmap = pmon->err_bitmap;
-			tmp_mpdu->decap_format = pmon->decap_format;
-			ath12k_dp_mon_rx_deliver(ar, tmp_mpdu,
+			ath12k_dp_mon_rx_deliver(ar, &tmp_mpdu,
 						 &pmon->mon_ppdu_info, napi);
 			rx_mon_stats->dest_mpdu_done++;
-			kfree(tmp_mpdu);
 		}
 
 		ring_entry = ath12k_hal_srng_dst_get_next_entry(ar->ab,
