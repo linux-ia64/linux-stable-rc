@@ -303,6 +303,9 @@ DECLARE_RC_STRUCT(dso) {
 	const char	 *short_name;
 	const char	 *long_name;
 	void		 *a2l;
+#ifdef HAVE_LIBBFD_SUPPORT
+	void		 *a2l_libbfd;
+#endif
 	char		 *symsrc_filename;
 #if defined(__powerpc__)
 	void		*dwfl;			/* DWARF debug info */
@@ -368,6 +371,18 @@ static inline void dso__set_a2l(struct dso *dso, void *val)
 {
 	RC_CHK_ACCESS(dso)->a2l = val;
 }
+
+#ifdef HAVE_LIBBFD_SUPPORT
+static inline void *dso__a2l_libbfd(const struct dso *dso)
+{
+	return RC_CHK_ACCESS(dso)->a2l_libbfd;
+}
+
+static inline void dso__set_a2l_libbfd(struct dso *dso, void *val)
+{
+	RC_CHK_ACCESS(dso)->a2l_libbfd = val;
+}
+#endif
 
 static inline unsigned int dso__a2l_fails(const struct dso *dso)
 {
