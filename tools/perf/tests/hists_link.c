@@ -303,7 +303,7 @@ static int test__hists_link(struct test_suite *test __maybe_unused, int subtest 
 		goto out;
 
 	err = TEST_FAIL;
-	machines__init(&machines);
+	machines__init(&machines, /*session=*/NULL);
 
 	/* setup threads/dso/map/symbols also */
 	machine = setup_fake_machine(&machines);
