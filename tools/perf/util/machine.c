@@ -229,9 +229,10 @@ void machine__delete(struct machine *machine)
 	}
 }
 
-void machines__init(struct machines *machines)
+void machines__init(struct machines *machines, struct perf_session *session)
 {
 	machine__init(&machines->host, "", HOST_KERNEL_ID);
+	machines->session = session;
 	machines->host.machines = machines;
 	machines->guests = RB_ROOT_CACHED;
 }
