@@ -241,13 +241,13 @@ module_init(test_sysctl_init);
 
 static void __exit test_sysctl_exit(void)
 {
-	kfree(test_data.bitmap_0001);
 	if (sysctl_test_headers.test_h_setup_node)
 		unregister_sysctl_table(sysctl_test_headers.test_h_setup_node);
 	if (sysctl_test_headers.test_h_mnt)
 		unregister_sysctl_table(sysctl_test_headers.test_h_mnt);
 	if (sysctl_test_headers.test_h_mnterror)
 		unregister_sysctl_table(sysctl_test_headers.test_h_mnterror);
+	kfree(test_data.bitmap_0001);
 }
 
 module_exit(test_sysctl_exit);
