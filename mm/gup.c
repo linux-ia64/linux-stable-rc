@@ -1743,6 +1743,10 @@ static long __get_user_pages_locked(struct mm_struct *mm, unsigned long start,
 	unsigned long vm_flags;
 	long i;
 
+	/* See the MMU variant: support the traditional behavior. */
+	if (pages && !(foll_flags & FOLL_PIN))
+		foll_flags |= FOLL_GET;
+
 	/* calculate required read or write permissions.
 	 * If FOLL_FORCE is set, we only require the "MAY" flags.
 	 */
@@ -1763,8 +1767,12 @@ static long __get_user_pages_locked(struct mm_struct *mm, unsigned long start,
 
 		if (pages) {
 			pages[i] = virt_to_page((void *)start);
-			if (pages[i])
-				get_page(pages[i]);
+			if (!pages[i])
+				goto finish_or_fault;
+			if (unlikely(!try_grab_page(pages[i], foll_flags))) {
+				pages[i] = NULL;
+				goto finish_or_fault;
+			}
 		}
 		if (vmas)
 			vmas[i] = vma;
