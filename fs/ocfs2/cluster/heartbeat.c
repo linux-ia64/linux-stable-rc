@@ -1955,17 +1955,21 @@ static ssize_t o2hb_region_dev_store(struct config_item *item,
 	atomic_set(&reg->hr_unsteady_iterations, (live_threshold * 3));
 	o2hb_set_region_stopping(reg, false);
 
-	hb_task = kthread_run(o2hb_thread, reg, "o2hb-%s",
-			      reg->hr_item.ci_name);
+	hb_task = kthread_create(o2hb_thread, reg, "o2hb-%s",
+				 reg->hr_item.ci_name);
 	if (IS_ERR(hb_task)) {
 		ret = PTR_ERR(hb_task);
 		mlog_errno(ret);
 		goto out3;
 	}
+	/* The thread may exit on its own, so pin it before it can run. */
+	get_task_struct(hb_task);
 
 	spin_lock(&o2hb_live_lock);
 	reg->hr_task = hb_task;
 	spin_unlock(&o2hb_live_lock);
+
+	wake_up_process(hb_task);
 
 	/*
 	 * Don't hold hr_dev_mutex across the wait, which can take seconds.
@@ -2016,8 +2020,10 @@ out3:
 		reg->hr_task = NULL;
 		spin_unlock(&o2hb_live_lock);
 
-		if (hb_task)
+		if (hb_task) {
 			kthread_stop(hb_task);
+			put_task_struct(hb_task);
+		}
 
 		o2hb_unmap_slot_data(reg);
 
@@ -2215,8 +2221,10 @@ static void o2hb_heartbeat_group_drop_item(struct config_group *group,
 	reg->hr_item_dropped = 1;
 	spin_unlock(&o2hb_live_lock);
 
-	if (hb_task)
+	if (hb_task) {
 		kthread_stop(hb_task);
+		put_task_struct(hb_task);
+	}
 
 	if (o2hb_global_heartbeat_active()) {
 		spin_lock(&o2hb_live_lock);
