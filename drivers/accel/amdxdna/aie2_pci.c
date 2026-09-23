@@ -502,11 +502,15 @@ static int aie2_init(struct amdxdna_dev *xdna)
 	ndev->priv = xdna->dev_info->dev_priv;
 	ndev->xdna = xdna;
 
+	ret = aie2_hwctx_sched_init(ndev);
+	if (ret)
+		return ret;
+
 	ret = request_firmware(&fw, ndev->priv->fw_path, &pdev->dev);
 	if (ret) {
 		XDNA_ERR(xdna, "failed to request_firmware %s, ret %d",
 			 ndev->priv->fw_path, ret);
-		return ret;
+		goto free_hwctx_sched;
 	}
 
 	ret = pcim_enable_device(pdev);
@@ -597,6 +601,8 @@ stop_hw:
 	aie2_hw_stop(xdna);
 release_fw:
 	release_firmware(fw);
+free_hwctx_sched:
+	aie2_hwctx_sched_fini(ndev);
 
 	return ret;
 }
@@ -605,6 +611,7 @@ static void aie2_fini(struct amdxdna_dev *xdna)
 {
 	amdxdna_pm_fini(xdna);
 	aie2_hw_stop(xdna);
+	aie2_hwctx_sched_fini(xdna->dev_handle);
 }
 
 static int aie2_get_aie_status(struct amdxdna_client *client,

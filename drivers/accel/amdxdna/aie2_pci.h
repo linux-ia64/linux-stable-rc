@@ -133,7 +133,7 @@ struct amdxdna_hwctx_priv {
 	struct amdxdna_gem_obj		*heap;
 	void				*mbox_chann;
 
-	struct drm_gpu_scheduler	sched;
+	struct drm_gpu_scheduler	*sched;
 	struct drm_sched_entity		entity;
 
 	struct mutex			io_lock; /* protect seq and cmd order */
@@ -173,6 +173,8 @@ struct amdxdna_dev_hdl {
 	u32				total_col;
 	struct aie_version		version;
 	struct aie_metadata		metadata;
+	struct drm_gpu_scheduler	*hwctx_sched;
+	struct ida			hwctx_sched_ida;
 
 	/* power management and clock*/
 	enum amdxdna_power_mode_type	pw_mode;
@@ -293,6 +295,8 @@ int aie2_sync_bo(struct amdxdna_hwctx *hwctx, struct amdxdna_sched_job *job,
 /* aie2_hwctx.c */
 int aie2_hwctx_init(struct amdxdna_hwctx *hwctx);
 void aie2_hwctx_fini(struct amdxdna_hwctx *hwctx);
+int aie2_hwctx_sched_init(struct amdxdna_dev_hdl *ndev);
+void aie2_hwctx_sched_fini(struct amdxdna_dev_hdl *ndev);
 int aie2_hwctx_config(struct amdxdna_hwctx *hwctx, u32 type, u64 value, void *buf, u32 size);
 void aie2_hwctx_suspend(struct amdxdna_client *client);
 int aie2_hwctx_resume(struct amdxdna_client *client);
