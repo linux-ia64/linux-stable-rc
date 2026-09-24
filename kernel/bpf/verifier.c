@@ -5140,15 +5140,18 @@ static int check_stack_read_fixed_off(struct bpf_verifier_env *env,
 			}
 
 			mark_reg_read(env, reg, reg->parent, REG_LIVE_READ64);
-			if (dst_regno < 0)
-				return 0;
 
 			if (size <= spill_size &&
 			    bpf_stack_narrow_access_ok(off, size, spill_size)) {
+				s32 subreg_def;
+
+				if (dst_regno < 0)
+					return 0;
+
 				/* The earlier check_reg_arg() has decided the
 				 * subreg_def for this insn.  Save it first.
 				 */
-				s32 subreg_def = state->regs[dst_regno].subreg_def;
+				subreg_def = state->regs[dst_regno].subreg_def;
 
 				copy_register_state(&state->regs[dst_regno], reg);
 				state->regs[dst_regno].subreg_def = subreg_def;
@@ -5179,6 +5182,9 @@ static int check_stack_read_fixed_off(struct bpf_verifier_env *env,
 						off, i, size);
 					return -EACCES;
 				}
+
+				if (dst_regno < 0)
+					return 0;
 
 				if (spill_cnt == size &&
 				    tnum_is_const(reg->var_off) && reg->var_off.value == 0) {
