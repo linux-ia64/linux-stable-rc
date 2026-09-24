@@ -11,8 +11,8 @@ struct netdev_xmit {
 #if IS_ENABLED(CONFIG_NET_ACT_MIRRED)
 	u8 sched_mirred_nest;
 #endif
-#if IS_ENABLED(CONFIG_NF_DUP_NETDEV)
-	u8 nf_dup_skb_recursion;
+#if IS_ENABLED(CONFIG_NETFILTER)
+	u8 nf_xmit_skb_recursion;
 #endif
 };
 
