@@ -21156,6 +21156,30 @@ static int add_hidden_subprog(struct bpf_verifier_env *env, struct bpf_insn *pat
 	return 0;
 }
 
+/*
+ * Expand may_goto: load the count from the stack, jump to the target of
+ * may_goto when it is zero, then the tail that updates the count.
+ * Use gotol when the target is too far for 16-bit offset of a conditional jump.
+ */
+static int may_goto_expand(struct bpf_insn *insn_buf, int off, int stack_off,
+			   const struct bpf_insn *tail, int tail_cnt)
+{
+	int cnt = 0;
+
+	/* Forward jump has to step over the tail */
+	off = off >= 0 ? off + tail_cnt : off - 1;
+
+	insn_buf[cnt++] = BPF_LDX_MEM(BPF_DW, BPF_REG_AX, BPF_REG_10, stack_off);
+	if (off == (s16)off) {
+		insn_buf[cnt++] = BPF_JMP_IMM(BPF_JEQ, BPF_REG_AX, 0, off);
+	} else {
+		insn_buf[cnt++] = BPF_JMP_IMM(BPF_JNE, BPF_REG_AX, 0, 1);
+		insn_buf[cnt++] = BPF_JMP32_A(off >= 0 ? off : off - 1);
+	}
+	memcpy(insn_buf + cnt, tail, tail_cnt * sizeof(*tail));
+	return cnt + tail_cnt;
+}
+
 /* Do various post-verification rewrites in a single program pass.
  * These rewrites simplify JIT and interpreter implementations.
  */
@@ -21443,16 +21467,14 @@ static int do_misc_fixups(struct bpf_verifier_env *env)
 
 		if (is_may_goto_insn(insn)) {
 			int stack_off = -stack_depth - 8;
+			struct bpf_insn tail[] = {
+				BPF_ALU64_IMM(BPF_SUB, BPF_REG_AX, 1),
+				BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_AX, stack_off),
+			};
 
 			stack_depth_extra = 8;
-			insn_buf[0] = BPF_LDX_MEM(BPF_DW, BPF_REG_AX, BPF_REG_10, stack_off);
-			if (insn->off >= 0)
-				insn_buf[1] = BPF_JMP_IMM(BPF_JEQ, BPF_REG_AX, 0, insn->off + 2);
-			else
-				insn_buf[1] = BPF_JMP_IMM(BPF_JEQ, BPF_REG_AX, 0, insn->off - 1);
-			insn_buf[2] = BPF_ALU64_IMM(BPF_SUB, BPF_REG_AX, 1);
-			insn_buf[3] = BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_AX, stack_off);
-			cnt = 4;
+			cnt = may_goto_expand(insn_buf, insn->off, stack_off,
+					      tail, ARRAY_SIZE(tail));
 
 			new_prog = bpf_patch_insn_data(env, i + delta, insn_buf, cnt);
 			if (!new_prog)
