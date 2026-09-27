@@ -591,7 +591,9 @@ static int validate_change(struct cpuset *cur, struct cpuset *trial)
 	 * tasks.
 	 */
 	ret = -EBUSY;
-	if (is_cpu_exclusive(cur) &&
+	if ((is_partition_valid(cur) ||
+	     (!cgroup_subsys_on_dfl(cpuset_cgrp_subsys) &&
+	      is_cpu_exclusive(cur))) &&
 	    !cpuset_cpumask_can_shrink(cur->cpus_allowed,
 				       trial->cpus_allowed))
 		goto out;
