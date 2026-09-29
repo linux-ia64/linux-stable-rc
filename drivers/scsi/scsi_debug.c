@@ -3699,9 +3699,9 @@ static int resp_write_dt0(struct scsi_cmnd *scp, struct sdebug_dev_info *devip)
 	ret = do_device_access(sip, scp, 0, lba, num, true);
 	if (unlikely(scsi_debug_lbp()))
 		map_region(sip, lba, num);
-	/* If ZBC zone then bump its write pointer */
-	if (sdebug_dev_is_zoned(devip))
-		zbc_inc_wp(devip, lba, num);
+	/* If ZBC zone then bump its write pointer over the data written */
+	if (sdebug_dev_is_zoned(devip) && ret > 0)
+		zbc_inc_wp(devip, lba, ret >> ilog2(sdebug_sector_size));
 	sdeb_write_unlock(sip);
 	if (unlikely(-1 == ret))
 		return DID_ERROR << 16;
@@ -3856,9 +3856,10 @@ static int resp_write_scat(struct scsi_cmnd *scp,
 		ret = do_device_access(sip, scp,
 				       min_t(u64, sg_off, scsi_bufflen(scp)),
 				       lba, num, true);
-		/* If ZBC zone then bump its write pointer */
-		if (sdebug_dev_is_zoned(devip))
-			zbc_inc_wp(devip, lba, num);
+		/* If ZBC zone then bump its write pointer over the data written */
+		if (sdebug_dev_is_zoned(devip) && ret > 0)
+			zbc_inc_wp(devip, lba,
+				   ret >> ilog2(sdebug_sector_size));
 		if (unlikely(scsi_debug_lbp()))
 			map_region(sip, lba, num);
 		if (unlikely(-1 == ret)) {
