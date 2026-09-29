@@ -182,13 +182,13 @@ static inline bool cascading_gic_irq(struct irq_data *d)
  */
 static void gic_poke_irq(struct irq_data *d, u32 offset)
 {
-	u32 mask = 1 << (gic_irq(d) % 32);
+	u32 mask = BIT(gic_irq(d) % 32);
 	writel_relaxed(mask, gic_dist_base(d) + offset + (gic_irq(d) / 32) * 4);
 }
 
 static int gic_peek_irq(struct irq_data *d, u32 offset)
 {
-	u32 mask = 1 << (gic_irq(d) % 32);
+	u32 mask = BIT(gic_irq(d) % 32);
 	return !!(readl_relaxed(gic_dist_base(d) + offset + (gic_irq(d) / 32) * 4) & mask);
 }
 
