@@ -360,7 +360,7 @@ static int aqr107_read_status(struct phy_device *phydev)
 	if (ret)
 		return ret;
 
-	if (!phydev->link || phydev->autoneg == AUTONEG_DISABLE)
+	if (!phydev->link)
 		return 0;
 
 	val = phy_read_mmd(phydev, MDIO_MMD_PHYXS, MDIO_PHYXS_VEND_IF_STATUS);
@@ -387,6 +387,9 @@ static int aqr107_read_status(struct phy_device *phydev)
 		phydev->interface = PHY_INTERFACE_MODE_NA;
 		break;
 	}
+
+	if (phydev->autoneg == AUTONEG_DISABLE)
+		return 0;
 
 	/* Read possibly downshifted rate from vendor register */
 	return aqr107_read_rate(phydev);
