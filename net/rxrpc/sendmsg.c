@@ -781,7 +781,6 @@ error_release_sock:
  * @sock: The socket the call is on
  * @call: The call to send data through
  * @msg: The data to send
- * @len: The amount of data to send
  * @notify_end_tx: Notification that the last packet is queued.
  *
  * Allow a kernel service to send data on a call.  The call must be in an state
@@ -790,8 +789,7 @@ error_release_sock:
  * more data to come, otherwise this data will end the transmission phase.
  */
 int rxrpc_kernel_send_data(struct socket *sock, struct rxrpc_call *call,
-			   struct msghdr *msg, size_t len,
-			   rxrpc_notify_end_tx_t notify_end_tx)
+			   struct msghdr *msg, rxrpc_notify_end_tx_t notify_end_tx)
 {
 	int ret;
 
@@ -800,31 +798,47 @@ int rxrpc_kernel_send_data(struct socket *sock, struct rxrpc_call *call,
 	ASSERTCMP(msg->msg_name, ==, NULL);
 	ASSERTCMP(msg->msg_control, ==, NULL);
 
-	mutex_lock(&call->user_mutex);
+	for (;;) {
+		mutex_lock(&call->user_mutex);
 
-	_debug("CALL %d USR %lx ST %d on CONN %p",
-	       call->debug_id, call->user_call_ID, call->state, call->conn);
+		_debug("CALL %d USR %lx ST %d on CONN %p",
+		       call->debug_id, call->user_call_ID, call->state, call->conn);
 
-	switch (READ_ONCE(call->state)) {
-	case RXRPC_CALL_CLIENT_SEND_REQUEST:
-	case RXRPC_CALL_SERVER_ACK_REQUEST:
-	case RXRPC_CALL_SERVER_SEND_REPLY:
-		ret = rxrpc_send_data(rxrpc_sk(sock->sk), call, msg, len,
-				      notify_end_tx);
-		goto out;
-	case RXRPC_CALL_COMPLETE:
-		read_lock_bh(&call->state_lock);
-		ret = call->error;
-		read_unlock_bh(&call->state_lock);
-		break;
-	default:
-		/* Request phase complete for this client call */
-		trace_rxrpc_rx_eproto(call, 0, tracepoint_string("late_send"));
-		ret = -EPROTO;
+		switch (READ_ONCE(call->state)) {
+		case RXRPC_CALL_CLIENT_SEND_REQUEST:
+		case RXRPC_CALL_SERVER_ACK_REQUEST:
+		case RXRPC_CALL_SERVER_SEND_REPLY:
+			ret = rxrpc_send_data(rxrpc_sk(sock->sk), call, msg,
+					      msg_data_left(msg), notify_end_tx);
+			if (ret < 0)
+				goto out;
+			if (msg_data_left(msg) == 0) {
+				ret = 0;
+				goto out;
+			}
+			if (ret == 0) {
+				ret = -EIO;
+				goto out;
+			}
+			continue;
+		case RXRPC_CALL_COMPLETE:
+			read_lock_bh(&call->state_lock);
+			ret = call->error;
+			read_unlock_bh(&call->state_lock);
+			if (!ret && msg_data_left(msg))
+				ret = -EIO;
+			break;
+		default:
+			/* Request phase complete for this client call */
+			trace_rxrpc_rx_eproto(call, 0, tracepoint_string("late_send"));
+			ret = -EPROTO;
+			break;
+		}
+
+		mutex_unlock(&call->user_mutex);
 		break;
 	}
 
-	mutex_unlock(&call->user_mutex);
 out:
 	_leave(" = %d", ret);
 	return ret;
