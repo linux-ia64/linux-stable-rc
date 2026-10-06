@@ -1265,7 +1265,8 @@ static int tc_setup_dwmac510_mqprio(struct stmmac_priv *priv,
 	for (u32 tc = 0; tc < num_tc; tc++) {
 		offset = qopt->offset[tc];
 		count = qopt->count[tc];
-		num_stack_tx_queues += count;
+		num_stack_tx_queues = max(num_stack_tx_queues,
+					  offset + count);
 
 		err = netdev_set_tc_queue(ndev, tc, count, offset);
 		if (err)
