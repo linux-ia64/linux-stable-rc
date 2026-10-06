@@ -55,6 +55,8 @@ MODULE_PARM_DESC(tjmax, "TjMax value in degrees Celsius");
 
 /*
  * Per-Core Temperature Data
+ * @temp_valid: Whether the CPU reported @temp as valid. @temp is not
+ *		reported when this is false.
  * @last_updated: The time when the current temperature value was updated
  *		earlier (in jiffies).
  * @cpu_core_id: The CPU Core from which temperature values should be read
@@ -68,6 +70,7 @@ MODULE_PARM_DESC(tjmax, "TjMax value in degrees Celsius");
  */
 struct temp_data {
 	int temp;
+	bool temp_valid;
 	int ttarget;
 	int tjmax;
 	u64 last_updated;
@@ -153,6 +156,8 @@ static ssize_t show_temp(struct device *dev,
 	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
 	struct platform_data *pdata = dev_get_drvdata(dev);
 	struct temp_data *tdata = pdata->core_data[attr->index];
+	int temp;
+	bool temp_valid;
 
 	mutex_lock(&tdata->update_lock);
 
@@ -161,18 +166,23 @@ static ssize_t show_temp(struct device *dev,
 	    time_after64(get_jiffies_64(), tdata->last_updated + HZ)) {
 		rdmsr_on_cpu(tdata->cpu, tdata->status_reg, &eax, &edx);
 		/*
-		 * Ignore the valid bit. In all observed cases the register
-		 * value is either low or zero if the valid bit is 0.
-		 * Return it instead of reporting an error which doesn't
-		 * really help at all.
+		 * Bit 31 indicates whether the reading is valid. Some CPUs
+		 * clear it while the temperature is too low to be measured.
+		 * Such a reading is not a temperature. Do not report it.
 		 */
+		tdata->temp_valid = (eax >> 31) & 1;
 		tdata->temp = tdata->tjmax - ((eax >> 16) & 0x7f) * 1000;
 		tdata->valid = true;
 		tdata->last_updated = get_jiffies_64();
 	}
 
+	temp_valid = tdata->temp_valid;
+	temp = tdata->temp;
 	mutex_unlock(&tdata->update_lock);
-	return sprintf(buf, "%d\n", tdata->temp);
+
+	if (!temp_valid)
+		return -ENODATA;
+	return sprintf(buf, "%d\n", temp);
 }
 
 struct tjmax_pci {
