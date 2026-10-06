@@ -318,9 +318,9 @@ reload:
 
 	ret = -EMSGSIZE;
 	if (call->tx_total_len != -1) {
-		if (len - copied > call->tx_total_len)
+		if (len > call->tx_total_len)
 			goto maybe_error;
-		if (!more && len - copied != call->tx_total_len)
+		if (!more && len != call->tx_total_len)
 			goto maybe_error;
 	}
 
@@ -343,7 +343,7 @@ reload:
 			 * the security header is going to be in the padded
 			 * region (enc blocksize), but the trailer is not.
 			 */
-			remain = more ? INT_MAX : msg_data_left(msg);
+			remain = more ? INT_MAX : len;
 			ret = call->conn->security->how_much_data(call, remain,
 								  &bufsize, &chunk, &offset);
 			if (ret < 0)
@@ -387,9 +387,11 @@ reload:
 		sp = rxrpc_skb(skb);
 
 		/* append next segment of data to the current buffer */
-		if (msg_data_left(msg) > 0) {
+		if (len > 0) {
 			int copy = skb_tailroom(skb);
 			ASSERTCMP(copy, >, 0);
+			if (copy > len)
+				copy = len;
 			if (copy > msg_data_left(msg))
 				copy = msg_data_left(msg);
 			if (copy > sp->remain)
@@ -403,6 +405,7 @@ reload:
 			sp->remain -= copy;
 			skb->mark += copy;
 			copied += copy;
+			len -= copy;
 			if (call->tx_total_len != -1)
 				call->tx_total_len -= copy;
 		}
@@ -414,7 +417,7 @@ reload:
 
 		/* add the packet to the send queue if it's now full */
 		if (sp->remain <= 0 ||
-		    (msg_data_left(msg) == 0 && !more)) {
+		    (len == 0 && !more)) {
 			struct rxrpc_connection *conn = call->conn;
 			uint32_t seq;
 
@@ -424,7 +427,7 @@ reload:
 			sp->hdr._rsvd	= 0;
 			sp->hdr.flags	= conn->out_clientflag;
 
-			if (msg_data_left(msg) == 0 && !more)
+			if (len == 0 && !more)
 				sp->hdr.flags |= RXRPC_LAST_PACKET;
 			else if (call->tx_top - call->tx_hard_ack <
 				 call->tx_winsize)
@@ -435,12 +438,12 @@ reload:
 				goto out_unlock;
 
 			ret = rxrpc_queue_packet(rx, call, skb,
-						 !msg_data_left(msg) && !more,
+						 len == 0 && !more,
 						 notify_end_tx);
 			/* Should check for failure here */
 			call->tx_pending = NULL;
 		}
-	} while (msg_data_left(msg) > 0);
+	} while (len > 0 && msg_data_left(msg) > 0);
 
 success:
 	ret = copied;
