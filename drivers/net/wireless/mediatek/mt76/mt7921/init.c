@@ -67,7 +67,7 @@ mt7921_regd_channel_update(struct wiphy *wiphy, struct mt792x_dev *dev)
 	(!(dev->phy.clc_chan_conf & BIT(idx)) && (cfreq) >= (sfreq) && (cfreq) <= (efreq))
 	struct ieee80211_supported_band *sband;
 	struct mt76_dev *mdev = &dev->mt76;
-	struct device_node *np, *band_np;
+	struct device_node *np, *band_np, *chan_np;
 	struct ieee80211_channel *ch;
 	int i, cfreq;
 
@@ -79,28 +79,39 @@ mt7921_regd_channel_update(struct wiphy *wiphy, struct mt792x_dev *dev)
 		ch = &sband->channels[i];
 		cfreq = ch->center_freq;
 
-		if (np && (!band_np || !mt76_find_channel_node(band_np, ch))) {
-			ch->flags |= IEEE80211_CHAN_DISABLED;
-			continue;
+		if (np) {
+			chan_np = band_np ?
+				  mt76_find_channel_node(band_np, ch) : NULL;
+			of_node_put(chan_np);
+			if (!chan_np) {
+				ch->flags |= IEEE80211_CHAN_DISABLED;
+				continue;
+			}
 		}
 
 		/* UNII-4 */
 		if (IS_UNII_INVALID(0, 5845, 5925))
 			ch->flags |= IEEE80211_CHAN_DISABLED;
 	}
+	of_node_put(band_np);
 
 	sband = wiphy->bands[NL80211_BAND_6GHZ];
 	if (!sband)
-		return;
+		goto out;
 
 	band_np = np ? of_get_child_by_name(np, "txpower-6g") : NULL;
 	for (i = 0; i < sband->n_channels; i++) {
 		ch = &sband->channels[i];
 		cfreq = ch->center_freq;
 
-		if (np && (!band_np || !mt76_find_channel_node(band_np, ch))) {
-			ch->flags |= IEEE80211_CHAN_DISABLED;
-			continue;
+		if (np) {
+			chan_np = band_np ?
+				  mt76_find_channel_node(band_np, ch) : NULL;
+			of_node_put(chan_np);
+			if (!chan_np) {
+				ch->flags |= IEEE80211_CHAN_DISABLED;
+				continue;
+			}
 		}
 
 		/* UNII-5/6/7/8 */
@@ -110,6 +121,10 @@ mt7921_regd_channel_update(struct wiphy *wiphy, struct mt792x_dev *dev)
 		    IS_UNII_INVALID(4, 6875, 7125))
 			ch->flags |= IEEE80211_CHAN_DISABLED;
 	}
+	of_node_put(band_np);
+
+out:
+	of_node_put(np);
 }
 
 void mt7921_regd_update(struct mt792x_dev *dev)
