@@ -84,7 +84,7 @@ void hda_codec_jack_wake_enable(struct snd_sof_dev *sdev, bool enable)
 
 	if (enable) {
 		list_for_each_codec(codec, hbus)
-			if (codec->jacktbl.used)
+			if (codec->jacktbl_used)
 				mask |= BIT(codec->core.addr);
 	}
 
@@ -107,7 +107,7 @@ void hda_codec_jack_check(struct snd_sof_dev *sdev)
 		 * Wake up all jack-detecting codecs regardless whether an event
 		 * has been recorded in STATESTS
 		 */
-		if (codec->jacktbl.used)
+		if (codec->jacktbl_used)
 			pm_request_resume(&codec->core.dev);
 }
 EXPORT_SYMBOL_NS_GPL(hda_codec_jack_check, SND_SOC_SOF_HDA_AUDIO_CODEC);
