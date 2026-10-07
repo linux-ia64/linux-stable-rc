@@ -30,6 +30,7 @@ struct hda_beep;
 struct hda_codec;
 struct hda_pcm;
 struct hda_pcm_stream;
+struct hda_jack_tbl;
 
 /*
  * codec bus
@@ -277,7 +278,8 @@ struct hda_codec {
 				 struct hda_codec *codec, hda_nid_t nid);
 
 	/* jack detection */
-	struct snd_array jacktbl;
+	struct hda_jack_tbl *jacktbl, *jacktbl_last; /* linked list head/tail */
+	int jacktbl_used; /* number of jacktbl elements */
 	unsigned long jackpoll_interval; /* In jiffies. Zero means no poll, rely on unsol events */
 	struct delayed_work jackpoll_work;
 
@@ -509,7 +511,7 @@ static inline void snd_hda_set_power_save(struct hda_bus *bus, int delay) {}
 
 static inline bool hda_codec_need_resume(struct hda_codec *codec)
 {
-	return !codec->relaxed_resume && codec->jacktbl.used;
+	return !codec->relaxed_resume && codec->jacktbl_used;
 }
 
 /*
