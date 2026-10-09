@@ -611,8 +611,7 @@ static int __rdtgroup_move_task(struct task_struct *tsk,
 
 static bool is_closid_match(struct task_struct *t, struct rdtgroup *r)
 {
-	return (rdt_alloc_capable &&
-	       (r->type == RDTCTRL_GROUP) && (t->closid == r->closid));
+	return (r->type == RDTCTRL_GROUP && t->closid == r->closid);
 }
 
 static bool is_rmid_match(struct task_struct *t, struct rdtgroup *r)
