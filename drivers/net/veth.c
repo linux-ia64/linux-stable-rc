@@ -344,6 +344,10 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	skb_tx_timestamp(skb);
+
+	/* tx queue index of this device, meaningless as rx queue of the peer */
+	skb_set_queue_mapping(skb, 0);
+
 	if (likely(veth_forward_skb(rcv, skb, rq, use_napi) == NET_RX_SUCCESS)) {
 		if (!use_napi)
 			dev_sw_netstats_tx_add(dev, 1, length);
