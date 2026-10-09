@@ -821,6 +821,7 @@ static const struct bpf_func_proto bpf_current_task_under_cgroup_proto = {
 
 struct send_signal_irq_work {
 	struct irq_work irq_work;
+	/* The claim: NULL marks the slot free for the next caller. */
 	struct task_struct *task;
 	u32 sig;
 	enum pid_type type;
@@ -835,6 +836,8 @@ static void do_bpf_send_signal(struct irq_work *entry)
 	work = container_of(entry, struct send_signal_irq_work, irq_work);
 	group_send_sig_info(work->sig, SEND_SIG_PRIV, work->task, work->type);
 	put_task_struct(work->task);
+	/* Release once the fields are consumed. */
+	smp_store_release(&work->task, NULL);
 }
 
 static int bpf_send_signal_common(u32 sig, enum pid_type type)
@@ -862,14 +865,14 @@ static int bpf_send_signal_common(u32 sig, enum pid_type type)
 			return -EINVAL;
 
 		work = this_cpu_ptr(&send_signal_work);
-		if (irq_work_is_busy(&work->irq_work))
+		if (cmpxchg(&work->task, NULL, current))
 			return -EBUSY;
 
 		/* Add the current task, which is the target of sending signal,
 		 * to the irq_work. The current task may change when queued
 		 * irq works get executed.
 		 */
-		work->task = get_task_struct(current);
+		get_task_struct(current);
 		work->sig = sig;
 		work->type = type;
 		irq_work_queue(&work->irq_work);
