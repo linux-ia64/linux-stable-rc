@@ -371,7 +371,7 @@ free_req:
 			if (!zone->len)
 				break;
 
-			ret = cb(zone, i, data);
+			ret = cb(zone, done_zones, data);
 			if (ret)
 				goto out;
 
