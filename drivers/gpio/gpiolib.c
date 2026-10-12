@@ -2064,6 +2064,8 @@ static bool gpiod_free_commit(struct gpio_desc *desc)
 		clear_bit(FLAG_BIAS_DISABLE, &desc->flags);
 		clear_bit(FLAG_EDGE_RISING, &desc->flags);
 		clear_bit(FLAG_EDGE_FALLING, &desc->flags);
+		clear_bit(FLAG_EVENT_CLOCK_REALTIME, &desc->flags);
+		clear_bit(FLAG_EVENT_CLOCK_HTE, &desc->flags);
 		clear_bit(FLAG_IS_HOGGED, &desc->flags);
 #ifdef CONFIG_OF_DYNAMIC
 		desc->hog = NULL;
