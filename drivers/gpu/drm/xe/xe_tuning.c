@@ -100,7 +100,7 @@ static const struct xe_rtp_entry_sr engine_tunings[] = {
 	},
 	{ XE_RTP_NAME("Tuning: Disable NULL query for Anyhit Shader"),
 	  XE_RTP_RULES(GRAPHICS_VERSION_RANGE(2000, XE_RTP_END_VERSION_UNDEFINED),
-		       FUNC(xe_rtp_match_first_render_or_compute)),
+		       ENGINE_CLASS(RENDER)),
 	  XE_RTP_ACTIONS(SET(RT_CTRL, DIS_NULL_QUERY))
 	},
 };
