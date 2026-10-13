@@ -1594,6 +1594,59 @@ static int at803x_cable_test_start(struct phy_device *phydev)
 	return 0;
 }
 
+static int qca8337_read_status(struct phy_device *phydev)
+{
+	int ret, old_link = phydev->link;
+
+	ret = genphy_read_status(phydev);
+	if (ret)
+		return ret;
+
+	/* Keep the state resolved at link-up while the link stays up */
+	if (phydev->autoneg == AUTONEG_ENABLE && old_link && phydev->link)
+		goto out;
+
+	phydev->mdix = ETH_TP_MDI_INVALID;
+
+	/* genphy_read_status() derives speed and duplex from the
+	 * advertisements, which is wrong after a SmartSpeed downshift.
+	 * Use what the PHY resolved instead.
+	 */
+	if (phydev->autoneg == AUTONEG_ENABLE && phydev->autoneg_complete &&
+	    phydev->link) {
+		phydev->speed = SPEED_UNKNOWN;
+		phydev->duplex = DUPLEX_UNKNOWN;
+		phydev->pause = false;
+		phydev->asym_pause = false;
+
+		ret = at803x_read_specific_status(phydev);
+		if (ret)
+			return ret;
+
+		/* Report the link down until speed and duplex are resolved,
+		 * so that the next poll reads them again. Also clear what
+		 * genphy_read_status() read for an up link, as the
+		 * PHY_HALTED path of the state machine does.
+		 */
+		if (phydev->speed == SPEED_UNKNOWN ||
+		    phydev->duplex == DUPLEX_UNKNOWN) {
+			phydev->link = 0;
+			phydev->duplex = DUPLEX_UNKNOWN;
+			phydev->mdix = ETH_TP_MDI_INVALID;
+			phydev->master_slave_state = MASTER_SLAVE_STATE_UNKNOWN;
+			linkmode_zero(phydev->lp_advertising);
+		} else {
+			phy_resolve_aneg_pause(phydev);
+		}
+	}
+
+out:
+	/* MDI-X configuration is not implemented */
+	phydev->mdix_ctrl = ETH_TP_MDI_INVALID;
+
+	return 0;
+}
+
 static int qca83xx_config_init(struct phy_device *phydev)
 {
 	u8 switch_revision;
@@ -2115,6 +2168,7 @@ static struct phy_driver at803x_driver[] = {
 	.flags			= PHY_IS_INTERNAL,
 	.config_init		= qca83xx_config_init,
 	.soft_reset		= genphy_soft_reset,
+	.read_status		= qca8337_read_status,
 	.get_sset_count		= at803x_get_sset_count,
 	.get_strings		= at803x_get_strings,
 	.get_stats		= at803x_get_stats,
