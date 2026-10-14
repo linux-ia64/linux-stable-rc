@@ -1261,11 +1261,13 @@ int aa_unpack(struct aa_loaddata *udata, struct list_head *lh,
 	return 0;
 
 fail_profile:
-	aa_put_profile(profile);
+	aa_put_unpublished_profile(profile);
 
 fail:
 	list_for_each_entry_safe(ent, tmp, lh, list) {
 		list_del_init(&ent->list);
+		aa_put_unpublished_profile(ent->new);
+		ent->new = NULL;
 		aa_load_ent_free(ent);
 	}
 
