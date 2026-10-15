@@ -3434,6 +3434,8 @@ out:
 
 		/*
 		 * Drop extent maps for the part of the extent we didn't write.
+		 * On error the written part is freed below as well, so drop
+		 * its maps too.
 		 *
 		 * We have an exception here for the free_space_inode, this is
 		 * because when we do btrfs_get_extent() on the free space inode
@@ -3446,9 +3448,15 @@ out:
 		 * we don't mess with the extent map tree in the NOCOW case, but
 		 * for now simply skip this if we are the free space inode.
 		 */
-		if (!btrfs_is_free_space_inode(inode))
-			btrfs_drop_extent_map_range(inode, unwritten_start,
+		if (!btrfs_is_free_space_inode(inode)) {
+			u64 drop_start = unwritten_start;
+
+			if (truncated && ret)
+				drop_start = start;
+
+			btrfs_drop_extent_map_range(inode, drop_start,
 						    end, false);
+		}
 
 		/*
 		 * If the ordered extent had an IOERR or something else went
