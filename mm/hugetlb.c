@@ -6112,8 +6112,6 @@ static vm_fault_t hugetlb_no_page(struct mm_struct *mm,
 		ret = hugetlb_wp(mm, vma, address, ptep, flags, page, ptl);
 	}
 
-	spin_unlock(ptl);
-
 	/*
 	 * Only set HPageMigratable in newly allocated pages.  Existing pages
 	 * found in the pagecache may not have HPageMigratableset if they have
@@ -6123,6 +6121,12 @@ static vm_fault_t hugetlb_no_page(struct mm_struct *mm,
 		SetHPageMigratable(page);
 
 	unlock_page(page);
+
+	/*
+	 * Hold the PTL until we're done with the page: the page table owns the
+	 * page reference now.
+	 */
+	spin_unlock(ptl);
 out:
 	hugetlb_vma_unlock_read(vma);
 	mutex_unlock(&hugetlb_fault_mutex_table[hash]);
