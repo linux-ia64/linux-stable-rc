@@ -3329,12 +3329,14 @@ out:
 					     &ordered_extent->flags))
 			mapping_set_error(ordered_extent->inode->i_mapping, -EIO);
 
-		if (truncated)
+		if (truncated && !ret)
 			unwritten_start += logical_len;
 		clear_extent_uptodate(io_tree, unwritten_start, end, NULL);
 
 		/*
 		 * Drop extent maps for the part of the extent we didn't write.
+		 * On error the written part is freed below as well, so drop
+		 * its maps too.
 		 *
 		 * We have an exception here for the free_space_inode, this is
 		 * because when we do btrfs_get_extent() on the free space inode
