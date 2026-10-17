@@ -890,7 +890,7 @@ void bpf_local_storage_map_free(struct bpf_map *map,
 				struct bpf_local_storage_elem, map_node))) {
 			if (busy_counter)
 				this_cpu_inc(*busy_counter);
-			bpf_selem_unlink(selem, true);
+			bpf_selem_unlink(selem, false);
 			if (busy_counter)
 				this_cpu_dec(*busy_counter);
 			cond_resched_rcu();
