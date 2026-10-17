@@ -10174,6 +10174,8 @@ static int push_callback_call(struct bpf_verifier_env *env, struct bpf_insn *ins
 					 is_bpf_wq_set_callback_impl_kfunc(insn->imm));
 		if (IS_ERR(async_cb))
 			return PTR_ERR(async_cb);
+		if (is_bpf_wq_set_callback_impl_kfunc(insn->imm))
+			env->prog->aux->sleepable_async_cb = true;
 		callee = async_cb->frame[0];
 		callee->async_entry_cnt = state->frame[0]->async_entry_cnt + 1;
 
