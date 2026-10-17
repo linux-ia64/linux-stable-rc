@@ -15668,7 +15668,10 @@ static int visit_insn(int t, struct bpf_verifier_env *env)
 			mark_prune_point(env, t);
 			mark_jmp_point(env, t);
 		}
-		if (bpf_helper_call(insn) && bpf_helper_changes_pkt_data(insn->imm))
+		/* nobody knows yet whether the dynptr is that of an skb */
+		if (bpf_helper_call(insn) &&
+		    (bpf_helper_changes_pkt_data(insn->imm) ||
+		     insn->imm == BPF_FUNC_dynptr_write))
 			mark_subprog_changes_pkt_data(env, t);
 		if (insn->src_reg == BPF_PSEUDO_KFUNC_CALL) {
 			struct bpf_kfunc_call_arg_meta meta;
