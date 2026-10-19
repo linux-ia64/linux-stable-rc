@@ -2479,7 +2479,6 @@ struct link_key *hci_add_link_key(struct hci_dev *hdev, struct hci_conn *conn,
 		key = kzalloc(sizeof(*key), GFP_KERNEL);
 		if (!key)
 			return NULL;
-		list_add_rcu(&key->list, &hdev->link_keys);
 	}
 
 	BT_DBG("%s key for %pMR type %u", hdev->name, bdaddr, type);
@@ -2502,6 +2501,9 @@ struct link_key *hci_add_link_key(struct hci_dev *hdev, struct hci_conn *conn,
 		key->type = old_key_type;
 	else
 		key->type = type;
+
+	if (!old_key)
+		list_add_rcu(&key->list, &hdev->link_keys);
 
 	if (persistent)
 		*persistent = hci_persistent_key(hdev, conn, type,
