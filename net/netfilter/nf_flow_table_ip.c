@@ -394,6 +394,7 @@ nf_flow_offload_ip_hook(void *priv, struct sk_buff *skb,
 
 	nf_flow_encap_pop(skb, tuplehash);
 	thoff -= offset;
+	skb_set_transport_header(skb, thoff);
 
 	iph = ip_hdr(skb);
 	nf_flow_nat_ip(flow, skb, thoff, dir, iph);
@@ -656,6 +657,7 @@ nf_flow_offload_ipv6_hook(void *priv, struct sk_buff *skb,
 	flow_offload_refresh(flow_table, flow, false);
 
 	nf_flow_encap_pop(skb, tuplehash);
+	skb_set_transport_header(skb, sizeof(*ip6h));
 
 	ip6h = ipv6_hdr(skb);
 	nf_flow_nat_ipv6(flow, skb, dir, ip6h);
