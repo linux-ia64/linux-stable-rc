@@ -297,7 +297,7 @@ vfs_setxattr(struct user_namespace *mnt_userns, struct dentry *dentry,
 	const void  *orig_value = value;
 	int error;
 
-	if (size && strcmp(name, XATTR_NAME_CAPS) == 0) {
+	if (strcmp(name, XATTR_NAME_CAPS) == 0) {
 		error = cap_convert_nscap(mnt_userns, dentry, &value, size);
 		if (error < 0)
 			return error;
