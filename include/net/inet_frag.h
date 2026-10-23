@@ -173,6 +173,7 @@ extern const u8 ip_frag_ecn_table[16];
 #define IPFRAG_OK	0
 #define IPFRAG_DUP	1
 #define IPFRAG_OVERLAP	2
+#define IPFRAG_MIXED_SECPATH	3
 #define IPFRAG_TOOBIG	4
 
 /* Max sum of the truesize of fragments in a queue. This keeps the sums
