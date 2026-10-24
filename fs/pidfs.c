@@ -440,6 +440,10 @@ again:
 	}
 
 copy_out:
+	/* Only report fields that fit into the caller's struct. */
+	if (usize < PIDFD_INFO_SIZE_VER1)
+		kinfo.mask &= ~PIDFD_INFO_COREDUMP;
+
 	/*
 	 * If userspace and the kernel have the same struct size it can just
 	 * be copied. If userspace provides an older struct, only the bits that
