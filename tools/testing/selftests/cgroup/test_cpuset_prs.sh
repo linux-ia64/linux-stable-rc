@@ -431,6 +431,10 @@ TEST_MATRIX=(
 	"CX0-4:P2:S+ CX2-4:P2:S+ CX3-4:P2 .     .     X2     .      .     0 A1:0-1,3-4|A2:2|A3:2 \
 								       A1:P2|A2:P2|A3:P-2 0-4"
 
+	# When an isolated partition child with root partition parent is invalidated,
+	# its effective xcpus will be removed from isolated_cpus.
+	"C1-4:P1:S+ C3-4:P2 .      .    T:C3-4   .      .      .     0 A1:3-4|A2:3-4 A1:P1|A2:P-2 ."
+
 	#  old-A1 old-A2 old-A3 old-B1 new-A1 new-A2 new-A3 new-B1 fail ECPUs Pstate ISOLCPUS
 	#  ------ ------ ------ ------ ------ ------ ------ ------ ---- ----- ------ --------
 	# Failure cases:
