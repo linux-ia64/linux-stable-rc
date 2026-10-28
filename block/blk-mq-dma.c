@@ -177,6 +177,8 @@ static bool blk_dma_map_iter_start(struct request *req, struct device *dma_dev,
 			bio_integrity(req->bio)->bip_flags |= BIP_P2P_DMA;
 		else
 			req->cmd_flags |= REQ_P2PDMA;
+		/* don't leave the state of an earlier mapping to the caller */
+		memset(state, 0, sizeof(*state));
 		return blk_dma_map_bus(iter, &vec);
 	case PCI_P2PDMA_MAP_THRU_HOST_BRIDGE:
 		/*
