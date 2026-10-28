@@ -2109,6 +2109,7 @@ cfg80211_inform_single_bss_data(struct wiphy *wiphy,
 					       &res->pub)) {
 			if (__cfg80211_unlink_bss(rdev, res)) {
 				rdev->bss_generation++;
+				bss_ref_put(rdev, res);
 				res = NULL;
 			}
 		}
