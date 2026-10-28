@@ -474,6 +474,7 @@ static void throtl_upgrade_state(struct throtl_data *td);
 static void throtl_pd_offline(struct blkg_policy_data *pd)
 {
 	struct throtl_grp *tg = pd_to_tg(pd);
+	struct throtl_grp *parent = blkg_to_tg(tg_to_blkg(tg)->parent);
 
 	tg->bps[READ][LIMIT_LOW] = 0;
 	tg->bps[WRITE][LIMIT_LOW] = 0;
@@ -484,6 +485,14 @@ static void throtl_pd_offline(struct blkg_policy_data *pd)
 
 	if (!tg->td->limit_valid[tg->td->limit_index])
 		throtl_upgrade_state(tg->td);
+
+	/* the recursive files of the ancestors go on counting what it did */
+	if (parent) {
+		blkg_rwstat_add_aux(&parent->stat_bytes, &tg->stat_bytes);
+		blkg_rwstat_add_aux(&parent->stat_ios, &tg->stat_ios);
+		blkg_rwstat_reset(&tg->stat_bytes);
+		blkg_rwstat_reset(&tg->stat_ios);
+	}
 }
 
 static void tg_release(struct rcu_head *rcu)
