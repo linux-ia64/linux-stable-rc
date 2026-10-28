@@ -5071,8 +5071,15 @@ static int blk_hctx_poll(struct request_queue *q, struct blk_mq_hw_ctx *hctx,
 int blk_mq_poll(struct request_queue *q, blk_qc_t cookie,
 		struct io_comp_batch *iob, unsigned int flags)
 {
-	struct blk_mq_hw_ctx *hctx = xa_load(&q->hctx_table, cookie);
+	struct blk_mq_hw_ctx *hctx;
 
+	/*
+	 * The cookie is no more than a hint. iocb_bio_iopoll() may have read it
+	 * from a bio that was reused for another queue right afterwards.
+	 */
+	hctx = xa_load(&q->hctx_table, cookie);
+	if (!hctx || hctx->type != HCTX_TYPE_POLL)
+		return 0;
 	return blk_hctx_poll(q, hctx, iob, flags);
 }
 
