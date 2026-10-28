@@ -90,6 +90,9 @@ static void blkg_free_workfn(struct work_struct *work)
 					     free_work);
 	int i;
 
+	/* It may have been queued for bios which an earlier run has taken */
+	cancel_work_sync(&blkg->async_bio_work);
+
 	for (i = 0; i < BLKCG_MAX_POLS; i++)
 		if (blkg->pd[i])
 			blkcg_policy[i]->pd_free_fn(blkg->pd[i]);
@@ -157,7 +160,7 @@ static void blkg_async_bio_workfn(struct work_struct *work)
 	struct blk_plug plug;
 	bool need_plug = false;
 
-	/* as long as there are pending bios, @blkg can't go away */
+	/* blkg_free_workfn() waits for us */
 	spin_lock_bh(&blkg->async_bio_lock);
 	bio_list_merge(&bios, &blkg->async_bios);
 	bio_list_init(&blkg->async_bios);
@@ -220,6 +223,8 @@ static struct blkcg_gq *blkg_alloc(struct blkcg *blkcg, struct gendisk *disk,
 	if (!blkg)
 		return NULL;
 
+	INIT_WORK(&blkg->async_bio_work, blkg_async_bio_workfn);
+
 	if (percpu_ref_init(&blkg->refcnt, blkg_release, 0, gfp_mask))
 		goto err_free;
 
@@ -234,7 +239,6 @@ static struct blkcg_gq *blkg_alloc(struct blkcg *blkcg, struct gendisk *disk,
 	INIT_LIST_HEAD(&blkg->q_node);
 	spin_lock_init(&blkg->async_bio_lock);
 	bio_list_init(&blkg->async_bios);
-	INIT_WORK(&blkg->async_bio_work, blkg_async_bio_workfn);
 	blkg->blkcg = blkcg;
 
 	u64_stats_init(&blkg->iostat.sync);
@@ -1683,11 +1687,17 @@ bool __blkcg_punt_bio_submit(struct bio *bio)
 	if (!blkg->parent)
 		return false;
 
+	/*
+	 * Once it is on the list, a run which is under way can submit
+	 * @bio, and its reference goes when it completes.
+	 */
+	blkg_get(blkg);
 	spin_lock_bh(&blkg->async_bio_lock);
 	bio_list_add(&blkg->async_bios, bio);
 	spin_unlock_bh(&blkg->async_bio_lock);
 
 	queue_work(blkcg_punt_bio_wq, &blkg->async_bio_work);
+	blkg_put(blkg);
 	return true;
 }
 
