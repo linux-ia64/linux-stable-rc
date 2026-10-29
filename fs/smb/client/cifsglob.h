@@ -1486,6 +1486,7 @@ struct cifs_io_request {
 	struct netfs_io_request		rreq;
 	struct cifsFileInfo		*cfile;
 	pid_t				pid;
+	int				umount_aborts;
 };
 
 /* asynchronous read support */
