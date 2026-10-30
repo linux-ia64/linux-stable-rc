@@ -383,10 +383,9 @@ static void dentry_free(struct dentry *dentry)
 }
 
 /*
- * If inode is unlinked and doesn't have any aliases (i.e., all fds pointing to
- * it are closed), it is pretty much dead. Except that file handle lookup could
- * still revive it which causes issues to fsnotify. So once inode reaches this
- * state we make sure to block creating any new aliases.
+ * When inode is unlinked and doesn't have any aliases (i.e., all fds pointing
+ * to it are closed) we report FS_DELETE_SELF to fsnotify and cleanup all inode
+ * marks.
  */
 static bool inode_notify_dead(struct inode *inode)
 {
@@ -2111,10 +2110,7 @@ static struct dentry *__d_instantiate_anon(struct dentry *dentry,
 
 	security_d_instantiate(dentry, inode);
 	spin_lock(&inode->i_lock);
-	if (!inode_notify_dead(inode))
-		res = __d_find_any_alias(inode);	/* recheck under lock */
-	else
-		res = ERR_PTR(-ESTALE);
+	res = __d_find_any_alias(inode); /* recheck under lock */
 	if (res) {
 		spin_unlock(&inode->i_lock);
 		dput(dentry);
@@ -2161,12 +2157,7 @@ static struct dentry *__d_obtain_alias(struct inode *inode, bool disconnected)
 	if (IS_ERR(inode))
 		return ERR_CAST(inode);
 
-	spin_lock(&inode->i_lock);
-	if (!inode_notify_dead(inode))
-		res = __d_find_any_alias(inode);	/* existing alias? */
-	else
-		res = ERR_PTR(-ESTALE);
-	spin_unlock(&inode->i_lock);
+	res = d_find_any_alias(inode); /* existing alias? */
 	if (res)
 		goto out_iput;
 
