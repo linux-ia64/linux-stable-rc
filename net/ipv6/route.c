@@ -3655,9 +3655,10 @@ void fib6_nh_release(struct fib6_nh *fib6_nh)
 {
 	struct rt6_exception_bucket *bucket;
 
+	fib6_nh_release_dsts(fib6_nh);
+
 	rcu_read_lock();
 
-	fib6_nh_flush_exceptions(fib6_nh, NULL);
 	bucket = fib6_nh_get_excptn_bucket(fib6_nh, NULL);
 	if (bucket) {
 		rcu_assign_pointer(fib6_nh->rt6i_exception_bucket, NULL);
@@ -3666,7 +3667,6 @@ void fib6_nh_release(struct fib6_nh *fib6_nh)
 
 	rcu_read_unlock();
 
-	fib6_nh_release_dsts(fib6_nh);
 	free_percpu(fib6_nh->rt6i_pcpu);
 
 	fib_nh_common_release(&fib6_nh->nh_common);
@@ -3675,6 +3675,8 @@ void fib6_nh_release(struct fib6_nh *fib6_nh)
 void fib6_nh_release_dsts(struct fib6_nh *fib6_nh)
 {
 	int cpu;
+
+	fib6_nh_flush_exceptions(fib6_nh, NULL);
 
 	if (!fib6_nh->rt6i_pcpu)
 		return;
