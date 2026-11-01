@@ -3320,6 +3320,10 @@ static void bpf_skb_change_protocol(struct sk_buff *skb, u16 proto)
 
 static int bpf_skb_generic_push(struct sk_buff *skb, u32 off, u32 len)
 {
+	/* The bytes in front of @off are moved with skb->data. */
+	if (unlikely(off > skb->len || !pskb_may_pull(skb, off)))
+		return -ENOMEM;
+
 	/* Caller already did skb_cow() with meta_len+len as headroom,
 	 * so no need to do it here.
 	 */
@@ -3340,9 +3344,10 @@ static int bpf_skb_generic_pop(struct sk_buff *skb, u32 off, u32 len)
 	void *old_data;
 
 	/* skb_ensure_writable() is not needed here, as we're
-	 * already working on an uncloned skb.
+	 * already working on an uncloned skb. The first test
+	 * keeps off + len from wrapping.
 	 */
-	if (unlikely(!pskb_may_pull(skb, off + len)))
+	if (unlikely(off > skb->len || !pskb_may_pull(skb, off + len)))
 		return -ENOMEM;
 
 	old_data = skb->data;
