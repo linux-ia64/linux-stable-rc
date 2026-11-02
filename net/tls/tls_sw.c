@@ -2887,7 +2887,8 @@ int tls_set_sw_offload(struct sock *sk, int tx)
 		}
 	}
 
-	ctx->push_pending_record = tls_sw_push_pending_record;
+	if (tx)
+		ctx->push_pending_record = tls_sw_push_pending_record;
 
 	rc = crypto_aead_setkey(*aead, key, cipher_desc->key);
 	if (rc)
