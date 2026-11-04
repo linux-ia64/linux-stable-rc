@@ -700,7 +700,6 @@ int mlx5_deactivate_lag(struct mlx5_lag *ldev)
 				      "Failed to deactivate VF LAG; driver restart required\n"
 				      "Make sure all VFs are unbound prior to VF LAG activation or deactivation\n");
 		}
-		return err;
 	}
 
 	if (test_bit(MLX5_LAG_MODE_FLAG_HASH_BASED, &flags)) {
@@ -710,7 +709,7 @@ int mlx5_deactivate_lag(struct mlx5_lag *ldev)
 	if (mlx5_lag_has_drop_rule(ldev))
 		mlx5_lag_drop_rule_cleanup(ldev);
 
-	return 0;
+	return err;
 }
 
 #define MLX5_LAG_OFFLOADS_SUPPORTED_PORTS 4
