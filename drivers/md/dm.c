@@ -2611,13 +2611,17 @@ int dm_setup_md_queue(struct mapped_device *md, struct dm_table *t)
 
 	WARN_ON_ONCE(type == DM_TYPE_NONE);
 
+	/* A failed setup may have left the queue initialized or the disk dead. */
+	if (md->tag_set || test_bit(GD_DEAD, &md->disk->state))
+		return -ENODEV;
+
 	if (type == DM_TYPE_REQUEST_BASED) {
-		md->disk->fops = &dm_rq_blk_dops;
 		r = dm_mq_init_request_queue(md, t);
 		if (r) {
 			DMERR("Cannot initialize queue for request-based dm mapped device");
 			return r;
 		}
+		md->disk->fops = &dm_rq_blk_dops;
 	}
 
 	r = dm_calculate_queue_limits(t, &limits);
