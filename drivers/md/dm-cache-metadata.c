@@ -766,6 +766,7 @@ static struct dm_cache_metadata *metadata_open(struct block_device *bdev,
 		return ERR_PTR(-ENOMEM);
 	}
 
+	INIT_LIST_HEAD(&cmd->list);
 	cmd->version = metadata_version;
 	refcount_set(&cmd->ref_count, 1);
 	init_rwsem(&cmd->root_lock);
