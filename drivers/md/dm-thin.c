@@ -1703,6 +1703,7 @@ static void break_up_discard_bio(struct thin_c *tc, dm_block_t begin, dm_block_t
 			(void) build_key(tc->td, PHYSICAL, data_begin, data_begin + len, &data_key);
 			if (bio_detain(tc->pool, &data_key, NULL, &data_cell)) {
 				/* contention, we'll give up with this range */
+				virt_begin += len;
 				data_begin += len;
 				continue;
 			}
