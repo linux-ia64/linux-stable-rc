@@ -65,6 +65,8 @@ MODULE_FIRMWARE(FIRMWARE_DCN_42_DMUB);
 MODULE_FIRMWARE(FIRMWARE_DCN_42B_DMUB);
 MODULE_FIRMWARE(FIRMWARE_DCN_60_DMUB);
 
+#define dmub_bo_create_kernel	amdgpu_bo_create_kernel
+
 /**
  * dm_dmub_aux_setconfig_callback - Callback for AUX or SET_CONFIG command.
  * @adev: amdgpu_device pointer
@@ -659,11 +661,11 @@ int dm_dmub_sw_init(struct amdgpu_device *adev)
 	 * Allocate a framebuffer based on the total size of all the regions.
 	 * TODO: Move this into GART.
 	 */
-	r = amdgpu_bo_create_kernel(adev, region_info.fb_size, PAGE_SIZE,
-				    mem_domain,
-				    &adev->dm.dmub_bo,
-				    &adev->dm.dmub_bo_gpu_addr,
-				    &adev->dm.dmub_bo_cpu_addr);
+	r = dmub_bo_create_kernel(adev, region_info.fb_size, PAGE_SIZE,
+				  mem_domain,
+				  &adev->dm.dmub_bo,
+				  &adev->dm.dmub_bo_gpu_addr,
+				  &adev->dm.dmub_bo_cpu_addr);
 	if (r)
 		return r;
 
