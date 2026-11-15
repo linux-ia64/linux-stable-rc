@@ -1636,9 +1636,10 @@ int collapse_pte_mapped_thp(struct mm_struct *mm, unsigned long addr,
 		/*
 		 * Must clear entry, or a racing truncate may re-remove it.
 		 * TLB flush can be left until pmdp_collapse_flush() does it.
-		 * PTE dirty? Shmem page is already dirty; file is read-only.
 		 */
-		ptep_clear(mm, addr, pte);
+		ptent = ptep_get_and_clear(mm, addr, pte);
+		if (pte_dirty(ptent))
+			folio_mark_dirty(folio);
 		folio_remove_rmap_pte(folio, page, vma);
 		nr_ptes++;
 	}
