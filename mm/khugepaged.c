@@ -1518,10 +1518,14 @@ void collapse_pte_mapped_thp(struct mm_struct *mm, unsigned long addr)
 	for (i = 0, addr = haddr, pte = start_pte;
 	     i < HPAGE_PMD_NR; i++, addr += PAGE_SIZE, pte++) {
 		struct page *page;
+		pte_t ptent;
 
 		if (pte_none(*pte))
 			continue;
 		page = vm_normal_page(vma, addr, *pte);
+		ptent = ptep_get_and_clear(mm, addr, pte);
+		if (pte_dirty(ptent))
+			set_page_dirty(hpage);
 		page_remove_rmap(page, false);
 	}
 
