@@ -2834,6 +2834,16 @@ static void mptcp_close(struct sock *sk, long timeout)
 	sk->sk_shutdown = SHUTDOWN_MASK;
 
 	if ((1 << sk->sk_state) & (TCPF_LISTEN | TCPF_CLOSE)) {
+		struct sock *ssk = mptcp_sk(sk)->first;
+
+		if (ssk) {
+			lock_sock_nested(ssk, SINGLE_DEPTH_NESTING);
+			if (ssk->sk_state == TCP_LISTEN) {
+				tcp_set_state(ssk, TCP_CLOSE);
+				inet_csk_listen_stop(ssk);
+			}
+			release_sock(ssk);
+		}
 		inet_sk_state_store(sk, TCP_CLOSE);
 		goto cleanup;
 	}
