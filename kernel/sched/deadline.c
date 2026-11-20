@@ -1482,7 +1482,7 @@ update_stats_dequeue_dl(struct dl_rq *dl_rq, struct sched_dl_entity *dl_se, int 
 
 static void update_curr_dl_se(struct rq *rq, struct sched_dl_entity *dl_se, s64 delta_exec)
 {
-	bool idle = rq->curr == rq->idle;
+	bool idle = idle_rq(rq);
 	s64 scaled_delta_exec;
 
 	if (unlikely(delta_exec <= 0)) {
@@ -1663,8 +1663,8 @@ void dl_server_update(struct sched_dl_entity *dl_se, s64 delta_exec)
  * | 8 |       B:zero_laxity-wait       |     |    |
  * |   |                                | <---+    |
  * |   +--------------------------------+          |
- * |     |              ^     ^           2        |
- * |     | 7            | 2   +--------------------+
+ * |     |              ^         ^       2        |
+ * |     | 7            | 2, 1    +----------------+
  * |     v              |
  * |   +-------------+  |
  * +-- | C:idle-wait | -+
@@ -1709,8 +1709,11 @@ void dl_server_update(struct sched_dl_entity *dl_se, s64 delta_exec)
  *   dl_defer_idle = 0
  *
  *
- * [1] A->B, A->D
+ * [1] A->B, A->D, C->B
  * dl_server_start()
+ *   dl_defer_idle = 0;
+ *   if (dl_server_active)
+ *     return; // [B]
  *   dl_server_active = 1;
  *   enqueue_dl_entity()
  *     update_dl_entity(WAKEUP)
@@ -1825,6 +1828,7 @@ void dl_server_update(struct sched_dl_entity *dl_se, s64 delta_exec)
  *   "B:zero_laxity-wait" -> "C:idle-wait"        [label="7:dl_server_update_idle"]
  *   "B:zero_laxity-wait" -> "D:running"          [label="3:dl_server_timer"]
  *   "C:idle-wait" -> "A:init"                    [label="8:dl_server_timer"]
+ *   "C:idle-wait" -> "B:zero_laxity-wait"        [label="1:dl_server_start"]
  *   "C:idle-wait" -> "B:zero_laxity-wait"        [label="2:dl_server_update"]
  *   "C:idle-wait" -> "C:idle-wait"               [label="7:dl_server_update_idle"]
  *   "D:running" -> "A:init"                      [label="4:pick_task_dl"]
@@ -1850,6 +1854,7 @@ void dl_server_start(struct sched_dl_entity *dl_se)
 {
 	struct rq *rq = dl_se->rq;
 
+	dl_se->dl_defer_idle = 0;
 	/*
 	 * XXX: the apply do not work fine at the init phase for the
 	 * fair server because things are not yet set. We need to improve
