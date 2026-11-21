@@ -72,9 +72,11 @@ static void io_timeout_complete(struct io_kiocb *req, struct io_tw_state *ts)
 	struct io_ring_ctx *ctx = req->ctx;
 
 	if (!io_timeout_finish(timeout, data)) {
-		bool filled;
-		filled = io_fill_cqe_req_aux(req, ts->locked, -ETIME,
-					     IORING_CQE_F_MORE);
+		bool filled = false;
+
+		if (!io_should_terminate_tw(ctx))
+			filled = io_fill_cqe_req_aux(req, ts->locked, -ETIME,
+						     IORING_CQE_F_MORE);
 		if (filled) {
 			/* re-arm timer */
 			spin_lock_irq(&ctx->timeout_lock);
