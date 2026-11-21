@@ -318,6 +318,7 @@ static void io_complete_rw_iopoll(struct kiocb *kiocb, long res)
 			req->flags |= REQ_F_REISSUE | REQ_F_PARTIAL_IO;
 			return;
 		}
+		req_set_fail(req);
 		req->cqe.res = res;
 	}
 
