@@ -11,13 +11,11 @@
 struct amdxdna_umap {
 	struct mmu_interval_notifier	notifier;
 	struct hmm_range		range;
-	struct work_struct		hmm_unreg_work;
 	struct amdxdna_gem_obj		*abo;
 	struct list_head		node;
 	struct kref			refcnt;
 	bool				invalid;
 	bool				unmapped;
-	bool				cleanup;
 };
 
 struct amdxdna_mem {
@@ -38,6 +36,7 @@ struct amdxdna_gem_obj {
 	bool				pinned;
 	struct mutex			lock; /* Protects: pinned */
 	struct amdxdna_mem		mem;
+	struct work_struct		hmm_unreg_work;
 
 	/* Below members is uninitialized when needed */
 	struct drm_mm			mm; /* For AMDXDNA_BO_DEV_HEAP */
