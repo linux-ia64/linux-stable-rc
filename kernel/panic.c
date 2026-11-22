@@ -199,7 +199,8 @@ void nmi_panic(struct pt_regs *regs, const char *msg)
 
 	if (old_cpu == PANIC_CPU_INVALID)
 		panic("%s", msg);
-	else if (old_cpu != cpu)
+
+	if (old_cpu != cpu)
 		nmi_panic_self_stop(regs);
 }
 EXPORT_SYMBOL(nmi_panic);
