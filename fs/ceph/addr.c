@@ -1171,11 +1171,6 @@ get_more_pages:
 			doutc(cl, "%llx.%llx will write page %p idx %lu\n",
 			      ceph_vinop(inode), page, page->index);
 
-			if (atomic_long_inc_return(&fsc->writeback_count) >
-			    CONGESTION_ON_THRESH(
-				    fsc->mount_options->congestion_kb))
-				fsc->write_congested = true;
-
 			if (IS_ENCRYPTED(inode)) {
 				pages[locked_pages] =
 					fscrypt_encrypt_pagecache_blocks(page,
@@ -1201,6 +1196,11 @@ get_more_pages:
 			} else {
 				pages[locked_pages++] = page;
 			}
+
+			if (atomic_long_inc_return(&fsc->writeback_count) >
+			    CONGESTION_ON_THRESH(
+				    fsc->mount_options->congestion_kb))
+				fsc->write_congested = true;
 
 			fbatch.folios[i] = NULL;
 			len += thp_size(page);
