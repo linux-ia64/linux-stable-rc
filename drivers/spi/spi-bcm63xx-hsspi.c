@@ -476,6 +476,7 @@ static int bcm63xx_hsspi_remove(struct platform_device *pdev)
 	__raw_writel(0, bs->regs + HSSPI_INT_MASK_REG);
 	clk_disable_unprepare(bs->pll_clk);
 	clk_disable_unprepare(bs->clk);
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
