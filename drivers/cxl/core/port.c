@@ -125,20 +125,29 @@ static ssize_t target_type_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(target_type);
 
+/*
+ * Interleave ways selects how many targets a decoder uses, but the target
+ * array is only nr_targets long. Bound array access by both.
+ */
+static int cxlsd_nr_used_targets(struct cxl_switch_decoder *cxlsd)
+{
+	return min(cxlsd->cxld.interleave_ways, cxlsd->nr_targets);
+}
+
 static ssize_t emit_target_list(struct cxl_switch_decoder *cxlsd, char *buf)
 {
-	struct cxl_decoder *cxld = &cxlsd->cxld;
+	int nr_used = cxlsd_nr_used_targets(cxlsd);
 	ssize_t offset = 0;
 	int i, rc = 0;
 
-	for (i = 0; i < cxld->interleave_ways; i++) {
+	for (i = 0; i < nr_used; i++) {
 		struct cxl_dport *dport = cxlsd->target[i];
 		struct cxl_dport *next = NULL;
 
 		if (!dport)
 			break;
 
-		if (i + 1 < cxld->interleave_ways)
+		if (i + 1 < nr_used)
 			next = cxlsd->target[i + 1];
 		rc = sysfs_emit_at(buf, offset, "%d%s", dport->port_id,
 				   next ? "," : "");
@@ -1387,7 +1396,7 @@ EXPORT_SYMBOL_NS_GPL(cxl_mem_find_port, CXL);
 static int decoder_populate_targets(struct cxl_switch_decoder *cxlsd,
 				    struct cxl_port *port, int *target_map)
 {
-	int i, rc = 0;
+	int i, nr_used, rc = 0;
 
 	if (!target_map)
 		return 0;
@@ -1398,7 +1407,8 @@ static int decoder_populate_targets(struct cxl_switch_decoder *cxlsd,
 		return -EINVAL;
 
 	write_seqlock(&cxlsd->target_lock);
-	for (i = 0; i < cxlsd->cxld.interleave_ways; i++) {
+	nr_used = cxlsd_nr_used_targets(cxlsd);
+	for (i = 0; i < nr_used; i++) {
 		struct cxl_dport *dport = find_dport(port, target_map[i]);
 
 		if (!dport) {
