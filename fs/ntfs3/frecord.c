@@ -2830,11 +2830,10 @@ out2:
 out1:
 	vunmap(frame_mem);
 out:
-	for (i = 0; i < pages_per_frame; i++) {
-		pg = pages[i];
-		if (err)
-			clear_highpage(pg);
-		SetPageUptodate(pg);
+	if (!err) {
+		for (i = 0; i < pages_per_frame; i++) {
+			SetPageUptodate(pages[i]);
+		}
 	}
 
 	return err;
