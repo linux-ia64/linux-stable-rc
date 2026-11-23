@@ -10048,7 +10048,7 @@ static void reg_set_min_max(struct bpf_reg_state *true_reg,
 						     tnum_const(val32));
 		} else {
 			false_64off = tnum_and(false_64off, tnum_const(~val));
-			if (is_power_of_2(val))
+			if (hweight64(val) == 1)
 				true_64off = tnum_or(true_64off,
 						     tnum_const(val));
 		}
