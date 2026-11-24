@@ -1453,7 +1453,7 @@ error_free_host:
 	return ret;
 }
 
-static int sunxi_mmc_remove(struct platform_device *pdev)
+static void sunxi_mmc_remove(struct platform_device *pdev)
 {
 	struct mmc_host	*mmc = platform_get_drvdata(pdev);
 	struct sunxi_mmc_host *host = mmc_priv(mmc);
@@ -1466,8 +1466,6 @@ static int sunxi_mmc_remove(struct platform_device *pdev)
 	}
 	dma_free_coherent(&pdev->dev, PAGE_SIZE, host->sg_cpu, host->sg_dma);
 	mmc_free_host(mmc);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM
@@ -1521,7 +1519,7 @@ static struct platform_driver sunxi_mmc_driver = {
 		.pm = &sunxi_mmc_pm_ops,
 	},
 	.probe		= sunxi_mmc_probe,
-	.remove		= sunxi_mmc_remove,
+	.remove_new	= sunxi_mmc_remove,
 };
 module_platform_driver(sunxi_mmc_driver);
 
