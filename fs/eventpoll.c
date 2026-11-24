@@ -1981,8 +1981,15 @@ send_events:
 		 * Always short-circuit for fatal signals to allow
 		 * threads to make a timely exit without the chance of
 		 * finding more events available and fetching
-		 * repeatedly.
+		 * repeatedly. The wakeup that got us here may have
+		 * been the only one for the events on ->rdllist, so
+		 * pass it on to the next waiter, as
+		 * ep_scan_ready_list() would have.
 		 */
+		write_lock_irq(&ep->lock);
+		if (!list_empty(&ep->rdllist))
+			wake_up(&ep->wq);
+		write_unlock_irq(&ep->lock);
 		res = -EINTR;
 	}
 	/*
