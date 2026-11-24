@@ -132,6 +132,14 @@ static long pidfd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		return -ESRCH;
 
 	/*
+	 * Require the target to be visible in the caller's pid namespace
+	 * for operations that grant access to its resources, mirroring
+	 * procfs and PIDFD_GET_INFO.
+	 */
+	if (!pid_nr_ns(pid, task_active_pid_ns(current)))
+		return -EREMOTE;
+
+	/*
 	 * We're trying to open a file descriptor to the namespace so perform a
 	 * filesystem cred ptrace check. Hold @task's exec_update_lock for the
 	 * duration of the ptrace check and the namespace lookup so that the
