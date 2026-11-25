@@ -99,7 +99,6 @@ int cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
 	int ret = 0;
 	unsigned long flags;
 	struct sleep_stack_data state;
-	struct arm_cpuidle_irq_context context;
 
 	/* Report any MTE async fault before going to suspend */
 	mte_suspend_enter();
@@ -112,6 +111,9 @@ int cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
 	 * Strictly speaking the trace_hardirqs_off() here is superfluous,
 	 * hardirqs should be firmly off by now. This really ought to use
 	 * something like raw_local_daif_save().
+	 *
+	 * This also unmasks interrupts in PMR in order to reliably
+	 * resume if we're using pseudo-NMIs.
 	 */
 	flags = local_daif_save();
 
@@ -121,12 +123,6 @@ int cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
 	 * disable graph tracing during their execution.
 	 */
 	pause_graph_tracing();
-
-	/*
-	 * Switch to using DAIF.IF instead of PMR in order to reliably
-	 * resume if we're using pseudo-NMIs.
-	 */
-	arm_cpuidle_save_irq_context(&context);
 
 	ct_cpuidle_enter();
 
@@ -149,8 +145,6 @@ int cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
 		ct_cpuidle_exit();
 		__cpu_suspend_exit();
 	}
-
-	arm_cpuidle_restore_irq_context(&context);
 
 	unpause_graph_tracing();
 
