@@ -140,9 +140,7 @@ static int rzv2h_wdt_stop(struct watchdog_device *wdev)
 	if (ret)
 		return ret;
 
-	ret = pm_runtime_put(wdev->parent);
-	if (ret < 0)
-		return ret;
+	pm_runtime_put(wdev->parent);
 
 	return 0;
 }
