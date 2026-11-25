@@ -708,6 +708,12 @@ static int traceprobe_parse_probe_arg_body(const char *argv, ssize_t *size,
 			 * For the symstr, it doesn't need to dereference, thus
 			 * it just get the value.
 			 */
+			if (parg->count && (code->op != FETCH_OP_DEREF &&
+					    code->op != FETCH_OP_UDEREF)) {
+				trace_probe_log_err(offset + (t ? (t - arg) : 0),
+						    BAD_STRING);
+				goto fail;
+			}
 			code++;
 			if (code->op != FETCH_OP_NOP) {
 				trace_probe_log_err(offset, TOO_MANY_OPS);
@@ -780,7 +786,8 @@ fail:
 	if (ret) {
 		for (code = tmp; code < tmp + FETCH_INSN_MAX; code++)
 			if (code->op == FETCH_NOP_SYMBOL ||
-			    code->op == FETCH_OP_DATA)
+			    code->op == FETCH_OP_DATA ||
+			    code->op == FETCH_OP_TP_ARG)
 				kfree(code->data);
 	}
 	kfree(tmp);
