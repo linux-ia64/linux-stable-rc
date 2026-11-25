@@ -104,6 +104,8 @@ struct ksmbd_file {
 
 	bool				is_nt_open;
 	bool				attrib_only;
+	/* writes data on open, see ksmbd_sharing_daccess() */
+	bool				implied_write;
 
 	char				client_guid[16];
 	char				create_guid[16];
