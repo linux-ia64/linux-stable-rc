@@ -2950,7 +2950,24 @@ static int update_prstate(struct cpuset *cs, int new_prs)
 		/*
 		 * A change in load balance state only, no change in cpumasks.
 		 */
+		struct cgroup_subsys_state *css;
+		struct cpuset *child;
+
+		/*
+		 * Need to scan child partitions, if present, and exclude
+		 * their effective_xcpus from cs, as those CPUs remain
+		 * dedicated to the child partitions.
+		 */
 		new_xcpus_state = true;
+		cpumask_copy(tmpmask.new_cpus, cs->effective_xcpus);
+		rcu_read_lock();
+		cpuset_for_each_child(child, css, cs) {
+			if (!is_partition_valid(child))
+				continue;
+			cpumask_andnot(tmpmask.new_cpus, tmpmask.new_cpus,
+				       child->effective_xcpus);
+		}
+		rcu_read_unlock();
 	} else {
 		/*
 		 * Switching back to member is always allowed even if it
@@ -2983,7 +3000,7 @@ out:
 	if (!is_partition_valid(cs))
 		reset_partition_data(cs);
 	else if (new_xcpus_state)
-		partition_xcpus_newstate(old_prs, new_prs, cs->effective_xcpus);
+		partition_xcpus_newstate(old_prs, new_prs, tmpmask.new_cpus);
 	spin_unlock_irq(&callback_lock);
 	update_unbound_workqueue_cpumask(new_xcpus_state);
 
