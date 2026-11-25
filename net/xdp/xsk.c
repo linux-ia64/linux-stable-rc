@@ -952,12 +952,6 @@ static struct sk_buff *xsk_build_skb(struct xdp_sock *xs,
 				skb->csum_start = hr + csum_start;
 				skb->csum_offset = csum_offset;
 				skb->ip_summed = CHECKSUM_PARTIAL;
-
-				if (unlikely(xs->pool->tx_sw_csum)) {
-					err = skb_checksum_help(skb);
-					if (err)
-						goto free_err;
-				}
 			}
 		}
 	}
@@ -1050,6 +1044,15 @@ static int __xsk_generic_xmit(struct sock *sk)
 		if (xp_mb_desc(&desc)) {
 			xs->skb = skb;
 			continue;
+		}
+
+		if (unlikely(xs->pool->tx_sw_csum &&
+			     skb->ip_summed == CHECKSUM_PARTIAL)) {
+			err = skb_checksum_help(skb);
+			if (unlikely(err)) {
+				xsk_drop_skb(skb);
+				goto out;
+			}
 		}
 
 		err = __dev_direct_xmit(skb, xs->queue_id);
