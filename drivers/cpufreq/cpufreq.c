@@ -531,7 +531,8 @@ void cpufreq_disable_fast_switch(struct cpufreq_policy *policy)
 EXPORT_SYMBOL_GPL(cpufreq_disable_fast_switch);
 
 static unsigned int __resolve_freq(struct cpufreq_policy *policy,
-		unsigned int target_freq, unsigned int relation)
+		unsigned int target_freq, unsigned int relation,
+		unsigned int *idx_p)
 {
 	unsigned int idx;
 
@@ -541,9 +542,10 @@ static unsigned int __resolve_freq(struct cpufreq_policy *policy,
 		return target_freq;
 
 	idx = cpufreq_frequency_table_target(policy, target_freq, relation);
-	policy->cached_resolved_idx = idx;
-	policy->cached_target_freq = policy->freq_table[idx].frequency;
-	return policy->cached_target_freq;
+	if (idx_p)
+		*idx_p = idx;
+
+	return policy->freq_table[idx].frequency;
 }
 
 /**
@@ -560,7 +562,10 @@ static unsigned int __resolve_freq(struct cpufreq_policy *policy,
 unsigned int cpufreq_driver_resolve_freq(struct cpufreq_policy *policy,
 					 unsigned int target_freq)
 {
-	return __resolve_freq(policy, target_freq, CPUFREQ_RELATION_L);
+	policy->cached_target_freq = __resolve_freq(policy, target_freq,
+						    CPUFREQ_RELATION_L,
+						    &policy->cached_resolved_idx);
+	return policy->cached_target_freq;
 }
 EXPORT_SYMBOL_GPL(cpufreq_driver_resolve_freq);
 
@@ -2313,11 +2318,12 @@ int __cpufreq_driver_target(struct cpufreq_policy *policy,
 			    unsigned int relation)
 {
 	unsigned int old_target_freq = target_freq;
+	unsigned int idx = 0;
 
 	if (cpufreq_disabled())
 		return -ENODEV;
 
-	target_freq = __resolve_freq(policy, target_freq, relation);
+	target_freq = __resolve_freq(policy, target_freq, relation, &idx);
 
 	pr_debug("target for CPU %u: %u kHz, relation %u, requested %u kHz\n",
 		 policy->cpu, target_freq, relation, old_target_freq);
@@ -2338,7 +2344,7 @@ int __cpufreq_driver_target(struct cpufreq_policy *policy,
 	if (!cpufreq_driver->target_index)
 		return -EINVAL;
 
-	return __target_index(policy, policy->cached_resolved_idx);
+	return __target_index(policy, idx);
 }
 EXPORT_SYMBOL_GPL(__cpufreq_driver_target);
 
@@ -2607,11 +2613,9 @@ static int cpufreq_set_policy(struct cpufreq_policy *policy,
 	 */
 	policy->min = new_data.min;
 	policy->max = new_data.max;
-	policy->min = __resolve_freq(policy, policy->min, CPUFREQ_RELATION_L);
-	policy->max = __resolve_freq(policy, policy->max, CPUFREQ_RELATION_H);
+	policy->min = __resolve_freq(policy, policy->min, CPUFREQ_RELATION_L, NULL);
+	policy->max = __resolve_freq(policy, policy->max, CPUFREQ_RELATION_H, NULL);
 	trace_cpu_frequency_limits(policy);
-
-	policy->cached_target_freq = UINT_MAX;
 
 	pr_debug("new min and max freqs are %u - %u kHz\n",
 		 policy->min, policy->max);
@@ -2637,6 +2641,12 @@ static int cpufreq_set_policy(struct cpufreq_policy *policy,
 		cpufreq_stop_governor(policy);
 		cpufreq_exit_governor(policy);
 	}
+
+	/*
+	 * Initialize cached_target_freq while no governor is running to avoid
+	 * racing with cpufreq_driver_resolve_freq(), which updates it.
+	 */
+	policy->cached_target_freq = UINT_MAX;
 
 	/* start new governor */
 	policy->governor = new_gov;
