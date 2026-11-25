@@ -1018,6 +1018,8 @@ struct btusb_data {
 
 	int oob_wake_irq;   /* irq for out-of-band wake-on-bt */
 
+	struct dentry *force_poll_sync_dentry;
+
 	struct qca_dump_info qca_dump;
 };
 
@@ -4418,8 +4420,9 @@ static int btusb_probe(struct usb_interface *intf,
 
 	usb_set_intfdata(intf, data);
 
-	debugfs_create_file("force_poll_sync", 0644, hdev->debugfs, data,
-			    &force_poll_sync_fops);
+	data->force_poll_sync_dentry =
+		debugfs_create_file("force_poll_sync", 0644, hdev->debugfs,
+				    data, &force_poll_sync_fops);
 
 	return 0;
 
@@ -4454,6 +4457,9 @@ static void btusb_disconnect(struct usb_interface *intf)
 
 	if (!data)
 		return;
+
+	debugfs_remove(data->force_poll_sync_dentry);
+	data->force_poll_sync_dentry = NULL;
 
 	hdev = data->hdev;
 	usb_set_intfdata(data->intf, NULL);
