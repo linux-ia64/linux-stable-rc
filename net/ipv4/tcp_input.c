@@ -4714,6 +4714,10 @@ static bool tcp_try_coalesce(struct sock *sk,
 		return false;
 #endif
 
+	/* Nothing follows a FIN. */
+	if (unlikely(TCP_SKB_CB(to)->tcp_flags & TCPHDR_FIN))
+		return false;
+
 	if (!skb_try_coalesce(to, from, fragstolen, &delta))
 		return false;
 
