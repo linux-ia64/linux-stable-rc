@@ -433,7 +433,7 @@ bool nfs4_layout_refresh_old_stateid(nfs4_stateid *dst,
 		}
 		/* Try to update the seqid to the most recent */
 		err = pnfs_mark_matching_lsegs_return(lo, &head, &range, 0,
-						      true);
+						      true, NULL);
 		if (err != -EBUSY) {
 			dst->seqid = lo->plh_stateid.seqid;
 			*dst_range = range;
@@ -487,7 +487,8 @@ static int pnfs_mark_layout_stateid_return(struct pnfs_layout_hdr *lo,
 		.length = NFS4_MAX_UINT64,
 	};
 
-	return pnfs_mark_matching_lsegs_return(lo, lseg_list, &range, seq, true);
+	return pnfs_mark_matching_lsegs_return(lo, lseg_list, &range, seq, true,
+					       NULL);
 }
 
 static int
@@ -525,7 +526,7 @@ pnfs_layout_io_set_failed(struct pnfs_layout_hdr *lo, u32 iomode)
 
 	spin_lock(&inode->i_lock);
 	pnfs_layout_set_fail_bit(lo, pnfs_iomode_to_fail_bit(iomode));
-	pnfs_mark_matching_lsegs_return(lo, &head, &range, 0, true);
+	pnfs_mark_matching_lsegs_return(lo, &head, &range, 0, true, NULL);
 	spin_unlock(&inode->i_lock);
 	pnfs_free_lseg_list(&head);
 	dprintk("%s Setting layout IOMODE_%s fail bit\n", __func__,
@@ -740,7 +741,7 @@ pnfs_mark_matching_lsegs_invalid(struct pnfs_layout_hdr *lo,
 			if (mark_lseg_invalid(lseg, tmp_list))
 				continue;
 			remaining++;
-			pnfs_lseg_cancel_io(server, lseg);
+			pnfs_lseg_cancel_io(server, lseg, NULL);
 		}
 	dprintk("%s:Return %i\n", __func__, remaining);
 	return remaining;
@@ -1462,7 +1463,7 @@ _pnfs_return_layout(struct inode *ino)
 	}
 	valid_layout = pnfs_layout_is_valid(lo);
 	pnfs_clear_layoutcommit(ino, &tmp_list);
-	pnfs_mark_matching_lsegs_return(lo, &tmp_list, &range, 0, true);
+	pnfs_mark_matching_lsegs_return(lo, &tmp_list, &range, 0, true, NULL);
 
 
 	/* Don't send a LAYOUTRETURN if list was initially empty */
@@ -2628,7 +2629,8 @@ pnfs_layout_process(struct nfs4_layoutget *lgp)
 			.iomode = IOMODE_ANY,
 			.length = NFS4_MAX_UINT64,
 		};
-		pnfs_mark_matching_lsegs_return(lo, &free_me, &range, 0, true);
+		pnfs_mark_matching_lsegs_return(lo, &free_me, &range, 0, true,
+						NULL);
 		goto out_forget;
 	} else {
 		/* We have a completely new layout */
@@ -2661,6 +2663,7 @@ out_forget:
  * @return_range: describe layout segment ranges to be returned
  * @seq: stateid seqid to match
  * @cancel_io: signal io be cancelled
+ * @devid: only cancel io directed at this device (all devices if NULL)
  *
  * This function is mainly intended for use by layoutrecall. It attempts
  * to free the layout segment immediately, or else to mark it for return
@@ -2675,7 +2678,8 @@ int
 pnfs_mark_matching_lsegs_return(struct pnfs_layout_hdr *lo,
 				struct list_head *tmp_list,
 				const struct pnfs_layout_range *return_range,
-				u32 seq, bool cancel_io)
+				u32 seq, bool cancel_io,
+				const struct nfs4_deviceid *devid)
 {
 	struct pnfs_layout_segment *lseg, *next;
 	struct nfs_server *server = NFS_SERVER(lo->plh_inode);
@@ -2702,7 +2706,7 @@ pnfs_mark_matching_lsegs_return(struct pnfs_layout_hdr *lo,
 			remaining++;
 			set_bit(NFS_LSEG_LAYOUTRETURN, &lseg->pls_flags);
 			if (cancel_io)
-				pnfs_lseg_cancel_io(server, lseg);
+				pnfs_lseg_cancel_io(server, lseg, devid);
 		}
 
 	if (remaining) {
@@ -2720,7 +2724,8 @@ pnfs_mark_matching_lsegs_return(struct pnfs_layout_hdr *lo,
 
 static void
 pnfs_mark_layout_for_return(struct inode *inode,
-			    const struct pnfs_layout_range *range)
+			    const struct pnfs_layout_range *range,
+			    const struct nfs4_deviceid *devid)
 {
 	struct pnfs_layout_hdr *lo;
 	bool return_now = false;
@@ -2738,7 +2743,7 @@ pnfs_mark_layout_for_return(struct inode *inode,
 	 * for how it works.
 	 */
 	if (pnfs_mark_matching_lsegs_return(lo, &lo->plh_return_segs, range, 0,
-					    true) != -EBUSY) {
+					    true, devid) != -EBUSY) {
 		const struct cred *cred;
 		nfs4_stateid stateid;
 		enum pnfs_iomode iomode;
@@ -2755,7 +2760,8 @@ pnfs_mark_layout_for_return(struct inode *inode,
 }
 
 void pnfs_error_mark_layout_for_return(struct inode *inode,
-				       struct pnfs_layout_segment *lseg)
+				       struct pnfs_layout_segment *lseg,
+				       const struct nfs4_deviceid *devid)
 {
 	struct pnfs_layout_range range = {
 		.iomode = lseg->pls_range.iomode,
@@ -2763,7 +2769,7 @@ void pnfs_error_mark_layout_for_return(struct inode *inode,
 		.length = NFS4_MAX_UINT64,
 	};
 
-	pnfs_mark_layout_for_return(inode, &range);
+	pnfs_mark_layout_for_return(inode, &range, devid);
 }
 EXPORT_SYMBOL_GPL(pnfs_error_mark_layout_for_return);
 
@@ -2853,7 +2859,7 @@ restart:
 		pnfs_get_layout_hdr(lo);
 		pnfs_set_plh_return_info(lo, range->iomode, 0);
 		if (pnfs_mark_matching_lsegs_return(lo, &lo->plh_return_segs,
-						    range, 0, true) != 0 ||
+						    range, 0, true, NULL) != 0 ||
 		    !pnfs_prepare_layoutreturn(lo, &stateid, &cred, &iomode)) {
 			spin_unlock(&inode->i_lock);
 			rcu_read_unlock();
