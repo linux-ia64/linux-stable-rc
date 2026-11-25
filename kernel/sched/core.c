@@ -8269,6 +8269,7 @@ int sched_cpu_deactivate(unsigned int cpu)
 	if (ret) {
 		sched_smt_present_inc(cpu);
 		sched_set_rq_online(rq, cpu);
+		scx_rq_activate(rq);
 		balance_push_set(cpu, false);
 		set_cpu_active(cpu, true);
 		sched_update_numa(cpu, true);
