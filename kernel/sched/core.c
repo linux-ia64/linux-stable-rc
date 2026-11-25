@@ -5768,7 +5768,6 @@ pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 {
 	struct task_struct *next, *max = NULL;
 	const struct sched_class *class;
-	const struct cpumask *smt_mask;
 	bool fi_before = false;
 	int i, j, cpu, occ = 0;
 	bool need_sync;
@@ -5815,7 +5814,6 @@ pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 
 	put_prev_task_balance(rq, prev, rf);
 
-	smt_mask = cpu_smt_mask(cpu);
 	need_sync = !!rq->core->core_cookie;
 
 	/* reset state */
@@ -5861,7 +5859,7 @@ pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 		}
 	}
 
-	for_each_cpu(i, smt_mask) {
+	for_each_core_cpu(i, rq) {
 		struct rq *rq_i = cpu_rq(i);
 
 		rq_i->core_pick = NULL;
@@ -5876,7 +5874,7 @@ pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 	 */
 	for_each_class(class) {
 again:
-		for_each_cpu_wrap(i, smt_mask, cpu) {
+		for_each_core_cpu_wrap(i, rq) {
 			struct rq *rq_i = cpu_rq(i);
 			struct task_struct *p;
 
@@ -5921,7 +5919,7 @@ again:
 
 				if (old_max) {
 					rq->core->core_forceidle = false;
-					for_each_cpu(j, smt_mask) {
+					for_each_core_cpu(j, rq) {
 						if (j == i)
 							continue;
 
@@ -5949,7 +5947,7 @@ again:
 	 * their task. This ensures there is no inter-sibling overlap between
 	 * non-matching user state.
 	 */
-	for_each_cpu(i, smt_mask) {
+	for_each_core_cpu(i, rq) {
 		struct rq *rq_i = cpu_rq(i);
 
 		/*
