@@ -1046,6 +1046,7 @@ static const struct regmap_config mvebu_gpio_regmap_config = {
 	.reg_stride = 4,
 	.val_bits = 32,
 	.fast_io = true,
+	.use_raw_spinlock = true,
 };
 
 static int mvebu_gpio_probe_raw(struct platform_device *pdev,
