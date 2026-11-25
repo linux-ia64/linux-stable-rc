@@ -655,6 +655,13 @@ static int traceprobe_parse_probe_arg_body(char *arg, ssize_t *size,
 			 * array of string pointers instead of string address
 			 * itself.
 			 */
+			if (parg->count && (code->op != FETCH_OP_DEREF &&
+					    code->op != FETCH_OP_UDEREF)) {
+				trace_probe_log_err(offset + (t ? (t - arg) : 0),
+						    BAD_STRING);
+				ret = -EINVAL;
+				goto fail;
+			}
 			code++;
 			if (code->op != FETCH_OP_NOP) {
 				trace_probe_log_err(offset, TOO_MANY_OPS);
