@@ -19841,6 +19841,7 @@ static int resolve_pseudo_ldimm64(struct bpf_verifier_env *env)
 					return -EOPNOTSUPP;
 				}
 				env->prog->aux->arena = (void *)map;
+				env->prog->jit_required = true;
 				if (!bpf_arena_get_user_vm_start(env->prog->aux->arena)) {
 					verbose(env, "arena's user address must be set via map_extra or mmap()\n");
 					return -EINVAL;
